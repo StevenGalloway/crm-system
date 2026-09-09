@@ -1,0 +1,32 @@
+{
+  "id": "app-config",
+  "type": "config",
+  "stages": [
+    { "key": "qualification", "label": "Qualification", "probability": 10, "order": 1 },
+    { "key": "discovery", "label": "Discovery", "probability": 20, "order": 2 },
+    { "key": "validation", "label": "Validation", "probability": 50, "order": 3 },
+    { "key": "decision_due", "label": "Decision Due", "probability": 75, "order": 4 },
+    { "key": "pending_sale", "label": "Pending Sale", "probability": 90, "order": 5 },
+    { "key": "win", "label": "Win", "probability": 100, "order": 6 },
+    { "key": "lost", "label": "Lost", "probability": 0, "order": 99, "terminal": true }
+  ],
+  "brand": {
+    "colors": {
+      "brightRed": "#BD3039",
+      "midnightBlue": "#0C2340",
+      "slateBlue": "#4E738A",
+      "black": "#000000",
+      "white": "#FFFFFF",
+      "grayDark": "#323E48",
+      "grayMedium": "#A2A9AD",
+      "grayLight": "#CFD2D3"
+    },
+    "logos": {
+      "full": "assets/fenway-logo-full.png",
+      "icon": "assets/fenway-logo-icon.png"
+    }
+  },
+  "notifications": {
+    "lookaheadBusinessDays": 5
+  }
+}

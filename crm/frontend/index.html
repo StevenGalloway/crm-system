@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fenway Group | New Business Pipeline</title>
+<link rel="icon" type="image/png" href="assets/fenway-logo-icon.png" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <img src="assets/fenway-logo-full.png" data-logo="full" alt="Fenway Group" class="app-logo" />
+  <nav class="app-nav">
+    <a href="index.html" class="active">Board</a>
+    <a href="calendar.html">Calendar</a>
+  </nav>
+  <div class="header-actions">
+    <label class="archive-toggle">
+      <input type="checkbox" id="showArchivedToggle" />
+      Show archived
+    </label>
+    <button id="newLeadBtn" class="btn btn-primary">+ New lead</button>
+  </div>
+</header>
+
+<main class="board" id="board">
+  <!-- columns rendered by app.js -->
+</main>
+
+<!-- New lead modal -->
+<div id="newLeadModal" class="modal-overlay hidden">
+  <div class="modal modal-small">
+    <div class="modal-header">
+      <h2>New lead</h2>
+      <button class="modal-close" data-close="newLeadModal">&times;</button>
+    </div>
+    <form id="newLeadForm">
+      <div class="modal-body">
+        <div class="field">
+          <label for="nlCompany">Company name *</label>
+          <input id="nlCompany" name="companyName" required />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="nlContact">Contact name</label>
+            <input id="nlContact" name="contactName" />
+          </div>
+          <div class="field">
+            <label for="nlValue">Deal value ($)</label>
+            <input id="nlValue" name="dealValue" type="number" min="0" step="1000" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="nlEmail">Contact email</label>
+            <input id="nlEmail" name="contactEmail" type="email" />
+          </div>
+          <div class="field">
+            <label for="nlPhone">Contact phone</label>
+            <input id="nlPhone" name="contactPhone" type="tel" />
+          </div>
+        </div>
+        <p class="stage-history">New leads always start in the first stage (Qualification).</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close="newLeadModal">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add lead</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Lead detail modal -->
+<div id="leadModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="ldCompanyName">Lead</h2>
+      <button class="modal-close" data-close="leadModal">&times;</button>
+    </div>
+    <div class="modal-body" id="leadModalBody">
+      <!-- rendered by app.js -->
+    </div>
+    <div class="modal-footer" id="leadModalFooter">
+      <!-- rendered by app.js -->
+    </div>
+  </div>
+</div>
+
+<script src="api-client.js"></script>
+<script src="demoData.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

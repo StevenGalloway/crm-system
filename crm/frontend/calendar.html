@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fenway Group | Calendar</title>
+<link rel="icon" type="image/png" href="assets/fenway-logo-icon.png" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <img src="assets/fenway-logo-full.png" data-logo="full" alt="Fenway Group" class="app-logo" />
+  <nav class="app-nav">
+    <a href="index.html">Board</a>
+    <a href="calendar.html" class="active">Calendar</a>
+  </nav>
+</header>
+
+<main class="calendar-page">
+  <h1>Upcoming</h1>
+  <p class="calendar-subhead" id="calendarSubhead">Action items and calendar events due over the next 5 business days.</p>
+  <div id="calendarContent">
+    <!-- rendered by calendar.js -->
+  </div>
+</main>
+
+<script src="api-client.js"></script>
+<script src="demoData.js"></script>
+<script src="calendar.js"></script>
+</body>
+</html>

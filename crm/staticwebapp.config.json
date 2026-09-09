@@ -1,0 +1,15 @@
+{
+  "routes": [
+    {
+      "route": "/api/*",
+      "allowedRoles": ["anonymous"]
+    }
+  ],
+  "navigationFallback": {
+    "rewrite": "index.html",
+    "exclude": ["/assets/*", "/api/*", "*.{css,js,png,ico,json}"]
+  },
+  "mimeTypes": {
+    ".json": "application/json"
+  }
+}
