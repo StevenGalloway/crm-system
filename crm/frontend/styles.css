@@ -196,6 +196,20 @@ a {
   padding: 4px 6px;
 }
 
+.btn-danger {
+  background: var(--brand-bright-red);
+  color: var(--brand-white);
+}
+
+.btn-danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btn-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 label {
   font-size: 12px;
   font-weight: 600;

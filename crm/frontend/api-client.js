@@ -41,6 +41,7 @@ function demoRoute(method, pathAndQuery, body) {
     }
     const id = parts[1];
     if (parts.length === 2 && method === 'PATCH') return window.DemoApi.updateLead(id, body);
+    if (parts.length === 2 && method === 'DELETE') return window.DemoApi.deleteLead(id);
     if (parts[2] === 'stage') return window.DemoApi.updateStage(id, body.action, body.targetStage);
     if (parts[2] === 'archive') return window.DemoApi.archiveLead(id, body.archived !== false);
     if (parts[2] === 'actions' && parts.length === 3) return window.DemoApi.addActionItem(id, body);
@@ -90,6 +91,13 @@ async function apiPatch(path, body) {
   });
   if (!res.ok) throw new Error(await safeErrorMessage(res));
   return res.json();
+}
+
+async function apiDelete(path) {
+  await ensureDemoModeChecked();
+  if (useDemoMode) return demoRoute('DELETE', path);
+  const res = await fetch(`${API_BASE}${path}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(await safeErrorMessage(res));
 }
 
 function applyBrandFromConfig(config) {

@@ -219,8 +219,13 @@ function wireStaticEvents() {
 
   document.getElementById('newLeadBtn').addEventListener('click', () => openModal('newLeadModal'));
 
-  document.querySelectorAll('[data-close]').forEach((btn) => {
-    btn.addEventListener('click', () => closeModal(btn.dataset.close));
+  // Delegated on document (rather than bound once to the buttons present at
+  // load) because leadModalFooter's Close button is re-created by innerHTML
+  // on every renderLeadModal() call, so a one-time querySelectorAll binding
+  // would miss it.
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-close]');
+    if (btn) closeModal(btn.dataset.close);
   });
 
   document.getElementById('newLeadForm').addEventListener('submit', async (e) => {
@@ -391,6 +396,7 @@ function renderLeadModal() {
   `;
 
   document.getElementById('leadModalFooter').innerHTML = `
+    <button class="btn-danger-text" data-action="delete" style="margin-right:auto;">Delete lead</button>
     <button class="btn btn-secondary" data-action="${lead.archived ? 'restore' : 'archive'}">${lead.archived ? 'Restore lead' : 'Archive lead'}</button>
     <button class="btn btn-secondary" data-close="leadModal">Close</button>
   `;
@@ -489,6 +495,10 @@ function wireLeadModalEvents(lead) {
   }
 
   footer.querySelectorAll('[data-action]').forEach((btn) => {
+    if (btn.dataset.action === 'delete') {
+      btn.addEventListener('click', () => openDeleteLeadConfirm(lead));
+      return;
+    }
     btn.addEventListener('click', async () => {
       const archived = btn.dataset.action === 'archive';
       try {
@@ -501,4 +511,37 @@ function wireLeadModalEvents(lead) {
       }
     });
   });
+}
+
+/* ---------------------------------------------------------------------
+   Delete lead (permanent) -- requires typing the exact company name
+--------------------------------------------------------------------- */
+function openDeleteLeadConfirm(lead) {
+  document.getElementById('dlCompanyName').textContent = lead.companyName;
+  const input = document.getElementById('dlConfirmInput');
+  const confirmBtn = document.getElementById('dlConfirmBtn');
+  input.value = '';
+  confirmBtn.disabled = true;
+
+  input.oninput = () => {
+    confirmBtn.disabled = input.value !== lead.companyName;
+  };
+
+  confirmBtn.onclick = async () => {
+    if (input.value !== lead.companyName) return;
+    confirmBtn.disabled = true;
+    try {
+      await apiDelete(`/leads/${lead.id}`);
+      closeModal('deleteLeadModal');
+      closeModal('leadModal');
+      await loadLeads();
+      showToast('Lead deleted');
+    } catch (err) {
+      showToast(err.message, true);
+      confirmBtn.disabled = false;
+    }
+  };
+
+  openModal('deleteLeadModal');
+  input.focus();
 }

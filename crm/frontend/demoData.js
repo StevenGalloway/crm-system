@@ -187,6 +187,11 @@
       return lead;
     },
 
+    deleteLead: (id) => {
+      findLead(id);
+      leads = leads.filter((l) => l.id !== id);
+    },
+
     archiveLead: (id, archived) => {
       const lead = findLead(id);
       lead.archived = archived;

@@ -87,6 +87,27 @@
   </div>
 </div>
 
+<!-- Delete lead confirmation modal -->
+<div id="deleteLeadModal" class="modal-overlay hidden">
+  <div class="modal modal-small">
+    <div class="modal-header">
+      <h2>Delete lead</h2>
+      <button class="modal-close" data-close="deleteLeadModal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p>This permanently deletes <strong id="dlCompanyName"></strong> and everything logged on it &mdash; action items, calendar events, communications, and stage history. <strong>This cannot be undone.</strong></p>
+      <div class="field">
+        <label for="dlConfirmInput">Type the company name exactly to confirm</label>
+        <input id="dlConfirmInput" autocomplete="off" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" data-close="deleteLeadModal">Cancel</button>
+      <button type="button" id="dlConfirmBtn" class="btn btn-danger" disabled>Delete permanently</button>
+    </div>
+  </div>
+</div>
+
 <script src="api-client.js"></script>
 <script src="demoData.js"></script>
 <script src="app.js"></script>
