@@ -45,8 +45,9 @@ function demoRoute(method, pathAndQuery, body) {
     if (parts[2] === 'stage') return window.DemoApi.updateStage(id, body.action, body.targetStage);
     if (parts[2] === 'archive') return window.DemoApi.archiveLead(id, body.archived !== false);
     if (parts[2] === 'actions' && parts.length === 3) return window.DemoApi.addActionItem(id, body);
-    if (parts[2] === 'actions' && parts.length === 4) return window.DemoApi.completeActionItem(id, parts[3], body.completed !== false);
-    if (parts[2] === 'events') return window.DemoApi.addEvent(id, body);
+    if (parts[2] === 'actions' && parts.length === 4) return window.DemoApi.updateActionItem(id, parts[3], body);
+    if (parts[2] === 'events' && parts.length === 3) return window.DemoApi.addEvent(id, body);
+    if (parts[2] === 'events' && parts.length === 4) return window.DemoApi.updateEvent(id, parts[3], body);
     if (parts[2] === 'communications') return window.DemoApi.addCommunication(id, body);
   }
   throw new Error(`No demo route for ${method} ${pathAndQuery}`);
@@ -140,6 +141,15 @@ function formatDate(dateStr) {
 function formatDateTime(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+// Converts a stored ISO datetime into the local "YYYY-MM-DDTHH:mm" string a
+// <input type="datetime-local"> needs as its value -- the inverse of the
+// `new Date(input.value).toISOString()` conversion used when saving one.
+function toDatetimeLocalValue(iso) {
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function showToast(message, isError) {

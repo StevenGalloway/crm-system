@@ -2,6 +2,8 @@ let config = null;
 let leads = [];
 let showArchived = false;
 let activeLeadId = null;
+let editingActionItemId = null;
+let editingEventId = null;
 
 async function init() {
   wireStaticEvents();
@@ -59,11 +61,25 @@ function renderBoard() {
     const leadsInStage = leads.filter((l) => l.stage === stage.key);
     board.appendChild(buildColumn(stage, leadsInStage));
   });
+
+  renderBoardSummary();
+}
+
+function renderBoardSummary() {
+  const summary = document.getElementById('boardSummary');
+  const total = leads.reduce((sum, l) => sum + (l.dealValue || 0), 0);
+  summary.innerHTML = `
+    <span class="board-summary-label">Total pipeline value</span>
+    <span class="board-summary-value">${formatCurrency(total)}</span>
+    <span class="board-summary-count">${leads.length} lead${leads.length === 1 ? '' : 's'}</span>
+  `;
 }
 
 function buildColumn(stage, leadsInStage) {
   const col = document.createElement('section');
   col.className = 'column' + (stage.terminal ? ' is-lost' : '');
+
+  const stageTotal = leadsInStage.reduce((sum, l) => sum + (l.dealValue || 0), 0);
 
   const header = document.createElement('div');
   header.className = 'column-header';
@@ -74,6 +90,7 @@ function buildColumn(stage, leadsInStage) {
       <span class="column-count">${leadsInStage.length}</span>
     </div>
     <div class="column-subline">${stage.probability}% probability</div>
+    <div class="column-total">${formatCurrency(stageTotal)}</div>
   `;
   col.appendChild(header);
 
@@ -263,6 +280,8 @@ function closeModal(id) {
 --------------------------------------------------------------------- */
 function openLead(id) {
   activeLeadId = id;
+  editingActionItemId = null;
+  editingEventId = null;
   renderLeadModal();
   openModal('leadModal');
 }
@@ -313,14 +332,25 @@ function renderLeadModal() {
     <div class="modal-section">
       <div class="modal-section-header"><h3>Action items</h3></div>
       <ul class="detail-list">
-        ${sortedActions.length ? sortedActions.map((a) => `
+        ${sortedActions.length ? sortedActions.map((a) => a.id === editingActionItemId ? `
+          <li class="detail-item">
+            <form class="inline-add-form" data-edit-action-form="${a.id}">
+              <input class="grow" name="description" value="${escapeHtml(a.description)}" required />
+              <input name="dueDate" type="date" value="${a.dueDate.slice(0, 10)}" required style="width:150px;" />
+              <button type="submit" class="btn btn-secondary">Save</button>
+              <button type="button" class="btn-text" data-cancel-edit-action="${a.id}">Cancel</button>
+            </form>
+          </li>` : `
           <li class="detail-item ${!a.completed && a.dueDate.slice(0, 10) < todayStr ? 'overdue' : ''} ${a.completed ? 'completed' : ''}">
             <div class="detail-item-top">
               <label style="display:flex;gap:6px;align-items:flex-start;font-weight:400;">
                 <input type="checkbox" data-toggle-action="${a.id}" ${a.completed ? 'checked' : ''} style="width:auto;margin-top:2px;" />
                 <span class="detail-item-title">${escapeHtml(a.description)}</span>
               </label>
-              <span class="detail-item-meta">Due ${formatDate(a.dueDate)}</span>
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span class="detail-item-meta">Due ${formatDate(a.dueDate)}</span>
+                <button class="btn-text" data-edit-action="${a.id}" style="padding:0;">Edit</button>
+              </span>
             </div>
           </li>`).join('') : '<li class="detail-item" style="color:var(--color-text-muted);border-style:dashed;">No action items yet</li>'}
       </ul>
@@ -334,11 +364,23 @@ function renderLeadModal() {
     <div class="modal-section">
       <div class="modal-section-header"><h3>Calendar events</h3></div>
       <ul class="detail-list">
-        ${sortedEvents.length ? sortedEvents.map((ev) => `
+        ${sortedEvents.length ? sortedEvents.map((ev) => ev.id === editingEventId ? `
+          <li class="detail-item">
+            <form class="inline-add-form" data-edit-event-form="${ev.id}" style="flex-wrap:wrap;">
+              <input class="grow" name="title" value="${escapeHtml(ev.title)}" required />
+              <input name="eventDate" type="datetime-local" value="${toDatetimeLocalValue(ev.eventDate)}" required style="width:190px;" />
+              <input class="grow" name="notes" placeholder="Notes (optional)" value="${escapeHtml(ev.notes || '')}" />
+              <button type="submit" class="btn btn-secondary">Save</button>
+              <button type="button" class="btn-text" data-cancel-edit-event="${ev.id}">Cancel</button>
+            </form>
+          </li>` : `
           <li class="detail-item">
             <div class="detail-item-top">
               <span class="detail-item-title">${escapeHtml(ev.title)}</span>
-              <span class="detail-item-meta">${formatDateTime(ev.eventDate)}</span>
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span class="detail-item-meta">${formatDateTime(ev.eventDate)}</span>
+                <button class="btn-text" data-edit-event="${ev.id}" style="padding:0;">Edit</button>
+              </span>
             </div>
             ${ev.notes ? `<div class="detail-item-meta">${escapeHtml(ev.notes)}</div>` : ''}
           </li>`).join('') : '<li class="detail-item" style="color:var(--color-text-muted);border-style:dashed;">No events scheduled</li>'}
@@ -449,6 +491,38 @@ function wireLeadModalEvents(lead) {
     });
   });
 
+  body.querySelectorAll('[data-edit-action]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      editingActionItemId = btn.dataset.editAction;
+      renderLeadModal();
+    });
+  });
+
+  body.querySelectorAll('[data-cancel-edit-action]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      editingActionItemId = null;
+      renderLeadModal();
+    });
+  });
+
+  body.querySelectorAll('[data-edit-action-form]').forEach((form) => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      try {
+        await apiPatch(`/leads/${lead.id}/actions/${form.dataset.editActionForm}`, {
+          description: f.description.value,
+          dueDate: f.dueDate.value,
+        });
+        editingActionItemId = null;
+        await loadLeads();
+        renderLeadModal();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+  });
+
   const addActionForm = document.getElementById('addActionForm');
   if (addActionForm) {
     addActionForm.addEventListener('submit', async (e) => {
@@ -478,6 +552,39 @@ function wireLeadModalEvents(lead) {
       }
     });
   }
+
+  body.querySelectorAll('[data-edit-event]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      editingEventId = btn.dataset.editEvent;
+      renderLeadModal();
+    });
+  });
+
+  body.querySelectorAll('[data-cancel-edit-event]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      editingEventId = null;
+      renderLeadModal();
+    });
+  });
+
+  body.querySelectorAll('[data-edit-event-form]').forEach((form) => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      try {
+        await apiPatch(`/leads/${lead.id}/events/${form.dataset.editEventForm}`, {
+          title: f.title.value,
+          eventDate: new Date(f.eventDate.value).toISOString(),
+          notes: f.notes.value,
+        });
+        editingEventId = null;
+        await loadLeads();
+        renderLeadModal();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+  });
 
   const addCommForm = document.getElementById('addCommForm');
   if (addCommForm) {

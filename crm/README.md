@@ -71,7 +71,7 @@ globally unique). It creates:
 Grab your connection values:
 ```bash
 az cosmosdb show --name <your-cosmos-account> --resource-group fenway-crm-poc-rg --query documentEndpoint -o tsv
-az cosmosdb keys list --name <your-cosmos-account> --resource-group fenway-crm-poc-rg --query primaryMasterKey -o tsv 
+az cosmosdb keys list --name <your-cosmos-account> --resource-group fenway-crm-poc-rg --query primaryMasterKey -o tsv
 ```
 
 ### Seed the config document
@@ -81,7 +81,7 @@ changes later" below for why it's kept as data instead of hardcoded.
 ```bash
 cd infra
 npm init -y && npm install @azure/cosmos
-COSMOS_ENDPOINT="<>" COSMOS_KEY="<>" COSMOS_DATABASE="crm" node seed-config.js
+COSMOS_ENDPOINT="<paste endpoint>" COSMOS_KEY="<paste key>" COSMOS_DATABASE="crm" node seed-config.js
 ```
 
 You should see `Seeded app-config document: app-config`.
@@ -131,20 +131,51 @@ az staticwebapp appsettings set \
   --name fenway-crm-poc \
   --setting-names \
     COSMOS_ENDPOINT="<your-cosmos-endpoint>" \
-    COSMOS_KEY="<>" \
+    COSMOS_KEY="<your-cosmos-key>" \
     COSMOS_DATABASE="crm" \
-    SLACK_WEBHOOK_URL="<>" \
+    SLACK_WEBHOOK_URL="<your-slack-webhook>" \
     NOTIFIER_LOOKAHEAD_DAYS="5" \
-    WEBSITE_TIME_ZONE="Central Standard Time"
+    AzureWebJobsFeatureFlags="EnableWorkerIndexing"
 ```
 
-`WEBSITE_TIME_ZONE` matters for the daily Slack post: the timer trigger's
-schedule (`0 0 13 * * 1-5` in `dailyNotifier.js`) is written in UTC. Setting
-this makes it fire at 8am Central instead of 8am UTC. This app setting only
-works on Windows-hosted Function plans; Static Web Apps' managed functions
-run on Linux, so if the schedule doesn't shift after setting it, adjust the
-cron expression in `dailyNotifier.js` directly instead (13:00 UTC = 8am CST
-/ 9am CDT -- pick whichever matches the season, or split the difference).
+`AzureWebJobsFeatureFlags=EnableWorkerIndexing` is required for this API's
+Node v4 programming model (no `function.json` files) to be recognized at
+all -- without it the Functions host finds zero functions and every
+`/api/*` route 404s.
+
+Do **not** add `WEBSITE_TIME_ZONE` -- Static Web Apps' managed Functions
+reject it outright (`InvalidAppSettings`). The daily Slack post's timer
+schedule in `dailyNotifier.js` runs in UTC and already compensates for this
+in code: it fires at both UTC hours 8am Central can land on across the DST
+change, and checks the actual Chicago-local hour before sending, so it
+posts exactly once a day regardless of season.
+
+### Where to find these values again
+
+None of these are "shown once" secrets -- Azure and Slack both let you
+pull them up again any time, so there's no need to stash them anywhere
+outside of Cosmos/Slack/Azure themselves.
+
+- **Cosmos DB account name** (the `<your-cosmos-account>` used when
+  grabbing the endpoint/key in step 2) -- whatever you set `COSMOS_ACCOUNT`
+  to in `infra/cosmos-setup.sh` when you provisioned it. If you've
+  forgotten it: `az cosmosdb list --resource-group fenway-crm-poc-rg -o table`
+- **`COSMOS_ENDPOINT`** --
+  `az cosmosdb show --name <your-cosmos-account> --resource-group fenway-crm-poc-rg --query documentEndpoint -o tsv`,
+  or Azure Portal → your Cosmos DB account → **Overview** (labeled "URI").
+- **`COSMOS_KEY`** --
+  `az cosmosdb keys list --name <your-cosmos-account> --resource-group fenway-crm-poc-rg --query primaryMasterKey -o tsv`,
+  or Azure Portal → your Cosmos DB account → **Settings → Keys** (also
+  where you'd rotate it if it ever leaked -- e.g. got pasted into a commit).
+- **`SLACK_WEBHOOK_URL`** -- [api.slack.com/apps](https://api.slack.com/apps)
+  → select the app you created in step 3 (e.g. "Pipeline Digest") →
+  **Incoming Webhooks**. Every webhook you've created is listed there in
+  full, per channel -- that's also where you'd add a new one when swapping
+  a test channel for a live one.
+- **Whatever is currently live**, without re-deriving anything -- Azure
+  will hand back every app setting already applied to this Static Web App,
+  Cosmos key included:
+  `az staticwebapp appsettings list --name fenway-crm-poc --resource-group fenway-crm-poc-rg`
 
 ---
 
@@ -173,7 +204,7 @@ under those same names works too.
 5. Add an action item with yesterday's date -- confirm it shows an "Overdue" badge on the card and in the Calendar tab.
 6. Add a calendar event and a communication; confirm the communication shows as "Last communication" on the card.
 7. Archive a lead, then check "Show archived" to confirm it's hidden/shown correctly.
-8. In the Azure Portal, find the `dailyNotifier` function and use **Code + Test → Test/Run** to fire it manually rather than waiting for the schedule -- confirm the Slack message arrives in your channel.
+8. Fire the Slack digest on demand instead of waiting for its 8am schedule: `curl -X POST https://<your-swa-hostname>/api/notify/test`. It runs the exact same query-and-post logic as the scheduled job and returns `{"posted": false, "reason": "..."}` if there's nothing overdue/upcoming to send -- add an action item due today first if you want to force a real Slack post.
 
 ---
 
@@ -210,10 +241,11 @@ tested at this scale, so the model favors simplicity over cleverness:
   redeploy needed either way.
 - **Change the Slack digest window:** update `NOTIFIER_LOOKAHEAD_DAYS` in
   the Function App's settings (also read by the Calendar page's subhead).
-- **Hard-delete a lead:** intentionally not exposed. With no login system,
-  a one-click permanent delete is an easy accident; leads can only be
-  archived (reversible) for now. Add a delete endpoint later if you decide
-  you actually want it.
+- **Hard-delete a lead:** exposed via the "Delete lead" button in the lead
+  detail modal, gated behind typing the lead's exact company name to
+  confirm -- with no login system, a one-click permanent delete would be an
+  easy accident. Archiving (reversible) is still there too, for anything
+  short of "get rid of this entirely."
 
 ## Known POC limitations worth knowing about
 

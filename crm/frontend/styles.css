@@ -47,6 +47,22 @@ body {
   color: var(--color-text);
   font-size: 14px;
   line-height: 1.45;
+  position: relative;
+}
+
+/* Faint fixed watermark of the brand icon behind the page content, for
+   depth. Sits below all normal content in paint order since it's a
+   pseudo-element preceding the rest of body's children in the tree. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url('assets/fenway-logo-icon.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: min(60vw, 680px);
+  opacity: 0.05;
+  pointer-events: none;
 }
 
 button {
@@ -66,14 +82,14 @@ a {
   gap: 24px;
   background: var(--color-header-bg);
   color: var(--color-header-fg);
-  padding: 10px 20px;
+  padding: 8px 20px;
   position: sticky;
   top: 0;
   z-index: 20;
 }
 
 .app-logo {
-  height: 28px;
+  height: 48px;
   display: block;
 }
 
@@ -248,6 +264,37 @@ input:focus, textarea:focus, select:focus {
 }
 
 /* ---------------------------------------------------------------------
+   Board summary
+--------------------------------------------------------------------- */
+.board-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 20px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.board-summary-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.board-summary-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--brand-midnight-blue);
+}
+
+.board-summary-count {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* ---------------------------------------------------------------------
    Board
 --------------------------------------------------------------------- */
 .board {
@@ -255,8 +302,8 @@ input:focus, textarea:focus, select:focus {
   gap: 14px;
   padding: 18px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   align-items: flex-start;
-  min-height: calc(100vh - 50px);
 }
 
 .column {
@@ -316,6 +363,13 @@ input:focus, textarea:focus, select:focus {
   font-size: 11px;
   opacity: 0.75;
   margin-top: 2px;
+  padding-left: 26px;
+}
+
+.column-total {
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 4px;
   padding-left: 26px;
 }
 

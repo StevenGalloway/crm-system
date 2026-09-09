@@ -210,12 +210,22 @@
       return lead;
     },
 
-    completeActionItem: (id, actionId, completed) => {
+    updateActionItem: (id, actionId, body) => {
       const lead = findLead(id);
       const item = lead.actionItems.find((a) => a.id === actionId);
       if (!item) throw new Error('Action item not found');
-      item.completed = completed;
-      item.completedAt = completed ? new Date().toISOString() : null;
+      if (body.description !== undefined) {
+        if (!body.description.trim()) throw new Error('description cannot be empty');
+        item.description = body.description.trim();
+      }
+      if (body.dueDate !== undefined) {
+        if (!body.dueDate) throw new Error('dueDate cannot be empty');
+        item.dueDate = body.dueDate;
+      }
+      if (body.completed !== undefined) {
+        item.completed = body.completed !== false;
+        item.completedAt = item.completed ? new Date().toISOString() : null;
+      }
       lead.updatedAt = new Date().toISOString();
       return lead;
     },
@@ -227,6 +237,25 @@
         id: uid(), title: body.title, eventDate: body.eventDate,
         notes: body.notes || '', createdAt: new Date().toISOString(),
       });
+      lead.updatedAt = new Date().toISOString();
+      return lead;
+    },
+
+    updateEvent: (id, eventId, body) => {
+      const lead = findLead(id);
+      const ev = lead.calendarEvents.find((e) => e.id === eventId);
+      if (!ev) throw new Error('Calendar event not found');
+      if (body.title !== undefined) {
+        if (!body.title.trim()) throw new Error('title cannot be empty');
+        ev.title = body.title.trim();
+      }
+      if (body.eventDate !== undefined) {
+        if (!body.eventDate) throw new Error('eventDate cannot be empty');
+        ev.eventDate = body.eventDate;
+      }
+      if (body.notes !== undefined) {
+        ev.notes = body.notes;
+      }
       lead.updatedAt = new Date().toISOString();
       return lead;
     },
