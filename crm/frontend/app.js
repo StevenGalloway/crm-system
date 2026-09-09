@@ -87,6 +87,22 @@ function buildColumn(stage, leadsInStage) {
       .forEach((lead) => body.appendChild(buildCard(lead)));
   }
   col.appendChild(body);
+
+  body.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    body.classList.add('drag-over');
+  });
+  body.addEventListener('dragleave', (e) => {
+    if (!body.contains(e.relatedTarget)) body.classList.remove('drag-over');
+  });
+  body.addEventListener('drop', (e) => {
+    e.preventDefault();
+    body.classList.remove('drag-over');
+    const leadId = e.dataTransfer.getData('text/plain');
+    if (leadId) handleDropOnStage(leadId, stage);
+  });
+
   return col;
 }
 
@@ -96,6 +112,7 @@ function buildCard(lead) {
   const isLost = lead.stage === 'lost';
   card.className = 'card' + (isWin ? ' is-win' : '') + (isLost ? ' is-lost' : '');
   card.dataset.leadId = lead.id;
+  card.draggable = true;
 
   const stage = stageByKey(lead.stage);
   const comm = lastCommunication(lead);
@@ -141,6 +158,15 @@ function buildCard(lead) {
     openLead(lead.id);
   });
 
+  card.addEventListener('dragstart', (e) => {
+    e.dataTransfer.setData('text/plain', lead.id);
+    e.dataTransfer.effectAllowed = 'move';
+    card.classList.add('dragging');
+  });
+  card.addEventListener('dragend', () => {
+    card.classList.remove('dragging');
+  });
+
   return card;
 }
 
@@ -150,6 +176,18 @@ function buildCard(lead) {
 async function handleStageAction(action, leadId) {
   try {
     await apiPatch(`/leads/${leadId}/stage`, { action });
+    await loadLeads();
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+async function handleDropOnStage(leadId, stage) {
+  const lead = leads.find((l) => l.id === leadId);
+  if (!lead || lead.stage === stage.key) return;
+  if (stage.terminal && !confirm('Mark this lead as Lost?')) return;
+  try {
+    await apiPatch(`/leads/${leadId}/stage`, { targetStage: stage.key });
     await loadLeads();
   } catch (err) {
     showToast(err.message, true);

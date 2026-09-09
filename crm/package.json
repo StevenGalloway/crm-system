@@ -1,0 +1,16 @@
+{
+  "name": "crm",
+  "version": "1.0.0",
+  "description": "A lightweight Kanban-style board for tracking leads and opportunities from Qualification through Win (or Lost), with action items, calendar events, a communications log, and a daily Slack digest of what's coming due.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@azure/cosmos": "^4.10.0"
+  }
+}

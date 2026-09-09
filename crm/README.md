@@ -71,7 +71,7 @@ globally unique). It creates:
 Grab your connection values:
 ```bash
 az cosmosdb show --name <your-cosmos-account> --resource-group fenway-crm-poc-rg --query documentEndpoint -o tsv
-az cosmosdb keys list --name <your-cosmos-account> --resource-group fenway-crm-poc-rg --query primaryMasterKey -o tsv
+az cosmosdb keys list --name <your-cosmos-account> --resource-group fenway-crm-poc-rg --query primaryMasterKey -o tsv 
 ```
 
 ### Seed the config document
@@ -81,7 +81,7 @@ changes later" below for why it's kept as data instead of hardcoded.
 ```bash
 cd infra
 npm init -y && npm install @azure/cosmos
-COSMOS_ENDPOINT="<paste endpoint>" COSMOS_KEY="<paste key>" COSMOS_DATABASE="crm" node seed-config.js
+COSMOS_ENDPOINT="<>" COSMOS_KEY="<>" COSMOS_DATABASE="crm" node seed-config.js
 ```
 
 You should see `Seeded app-config document: app-config`.
@@ -102,7 +102,7 @@ legacy custom-integration flow Slack is deprecating -- it'll keep working.
 
 ## 4. Deploy the Static Web App + API together
 
-From the `crm-poc/` folder:
+From the `crm/` folder:
 
 ```bash
 az staticwebapp create \
@@ -131,9 +131,9 @@ az staticwebapp appsettings set \
   --name fenway-crm-poc \
   --setting-names \
     COSMOS_ENDPOINT="<your-cosmos-endpoint>" \
-    COSMOS_KEY="<your-cosmos-key>" \
+    COSMOS_KEY="<>" \
     COSMOS_DATABASE="crm" \
-    SLACK_WEBHOOK_URL="<your-slack-webhook-url>" \
+    SLACK_WEBHOOK_URL="<>" \
     NOTIFIER_LOOKAHEAD_DAYS="5" \
     WEBSITE_TIME_ZONE="Central Standard Time"
 ```

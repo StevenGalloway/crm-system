@@ -160,10 +160,14 @@
       return lead;
     },
 
-    updateStage: (id, action) => {
+    updateStage: (id, action, targetStage) => {
       const lead = findLead(id);
       const idx = STAGE_ORDER.indexOf(lead.stage);
-      if (action === 'lost') {
+      if (targetStage !== undefined) {
+        if (!config.stages.some((s) => s.key === targetStage)) throw new Error('Unknown target stage');
+        if (targetStage === lead.stage) throw new Error('Lead is already in that stage');
+        lead.stage = targetStage;
+      } else if (action === 'lost') {
         if (lead.stage === 'lost') throw new Error('Already Lost');
         lead.stage = 'lost';
       } else if (action === 'reopen') {

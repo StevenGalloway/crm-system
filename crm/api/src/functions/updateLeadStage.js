@@ -4,9 +4,13 @@ const { leadsContainer, configContainer } = require('../cosmosClient');
 const LOST_STAGE = 'lost';
 const REOPEN_STAGE = 'qualification';
 
-async function getActiveStageOrder() {
+async function getStages() {
   const { resource } = await configContainer.item('app-config', 'app-config').read();
-  return resource.stages
+  return resource.stages;
+}
+
+function activeStageOrder(stages) {
+  return stages
     .filter((s) => !s.terminal)
     .sort((a, b) => a.order - b.order)
     .map((s) => s.key);
@@ -26,7 +30,8 @@ app.http('updateLeadStage', {
     }
 
     const action = body.action; // 'forward' | 'backward' | 'lost' | 'reopen'
-    if (!['forward', 'backward', 'lost', 'reopen'].includes(action)) {
+    const targetStage = body.targetStage; // direct stage key, e.g. from dragging a card to a column
+    if (targetStage === undefined && !['forward', 'backward', 'lost', 'reopen'].includes(action)) {
       return { status: 400, jsonBody: { error: 'action must be forward, backward, lost, or reopen' } };
     }
 
@@ -39,11 +44,20 @@ app.http('updateLeadStage', {
     }
     if (!lead) return { status: 404, jsonBody: { error: 'Lead not found' } };
 
-    const stageOrder = await getActiveStageOrder();
+    const stages = await getStages();
+    const stageOrder = activeStageOrder(stages);
     const currentIndex = stageOrder.indexOf(lead.stage);
     let newStage;
 
-    if (action === 'lost') {
+    if (targetStage !== undefined) {
+      if (!stages.some((s) => s.key === targetStage)) {
+        return { status: 400, jsonBody: { error: 'Unknown target stage' } };
+      }
+      if (targetStage === lead.stage) {
+        return { status: 400, jsonBody: { error: 'Lead is already in that stage' } };
+      }
+      newStage = targetStage;
+    } else if (action === 'lost') {
       if (lead.stage === LOST_STAGE) {
         return { status: 400, jsonBody: { error: 'Lead is already marked Lost' } };
       }

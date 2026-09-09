@@ -41,7 +41,7 @@ function demoRoute(method, pathAndQuery, body) {
     }
     const id = parts[1];
     if (parts.length === 2 && method === 'PATCH') return window.DemoApi.updateLead(id, body);
-    if (parts[2] === 'stage') return window.DemoApi.updateStage(id, body.action);
+    if (parts[2] === 'stage') return window.DemoApi.updateStage(id, body.action, body.targetStage);
     if (parts[2] === 'archive') return window.DemoApi.archiveLead(id, body.archived !== false);
     if (parts[2] === 'actions' && parts.length === 3) return window.DemoApi.addActionItem(id, body);
     if (parts[2] === 'actions' && parts.length === 4) return window.DemoApi.completeActionItem(id, parts[3], body.completed !== false);

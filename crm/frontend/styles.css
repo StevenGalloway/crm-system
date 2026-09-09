@@ -312,6 +312,13 @@ input:focus, textarea:focus, select:focus {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  border-radius: var(--radius);
+}
+
+.column-body.drag-over {
+  background: var(--color-bg-hover, rgba(78, 115, 138, 0.1));
+  outline: 2px dashed var(--brand-slate-blue);
+  outline-offset: -2px;
 }
 
 .column-empty {
@@ -332,11 +339,16 @@ input:focus, textarea:focus, select:focus {
   border-left: 4px solid var(--color-progress);
   border-radius: var(--radius);
   padding: 10px 10px 8px;
-  cursor: pointer;
+  cursor: grab;
 }
 
 .card:hover {
   border-color: var(--brand-slate-blue);
+}
+
+.card.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
 }
 
 .card.is-win {
@@ -450,7 +462,7 @@ input:focus, textarea:focus, select:focus {
   z-index: 100;
 }
 
-.modal-overlay.hidden {
+.hidden {
   display: none;
 }
 
