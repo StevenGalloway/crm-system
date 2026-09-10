@@ -31,6 +31,7 @@ app.http('createLead', {
       contactName: body.contactName || '',
       contactEmail: body.contactEmail || '',
       contactPhone: body.contactPhone || '',
+      clientPartner: body.clientPartner || '',
       dealValue: Number(body.dealValue) || 0,
       stage: FIRST_STAGE,
       archived: false,

@@ -50,7 +50,7 @@
     return [
       {
         id: uid(), type: 'lead', companyName: 'Harbor Freight Logistics', contactName: 'Dana Reyes',
-        contactEmail: 'dana@harborfreight.example', contactPhone: '555-0101',
+        contactEmail: 'dana@harborfreight.example', contactPhone: '555-0101', clientPartner: 'Sam Whitfield',
         dealValue: 84000, stage: 'validation', archived: false, createdAt: now, updatedAt: now,
         stageHistory: [
           { stage: 'qualification', enteredAt: daysFromNow(-20) },
@@ -70,7 +70,7 @@
       },
       {
         id: uid(), type: 'lead', companyName: 'Northgate Credit Union', contactName: 'Marcus Ito',
-        contactEmail: 'mito@northgate.example', contactPhone: '555-0110',
+        contactEmail: 'mito@northgate.example', contactPhone: '555-0110', clientPartner: 'Renee Ashby',
         dealValue: 152000, stage: 'decision_due', archived: false, createdAt: now, updatedAt: now,
         stageHistory: [{ stage: 'qualification', enteredAt: daysFromNow(-30) }],
         actionItems: [
@@ -109,6 +109,17 @@
 
   let leads = seedLeads();
 
+  let otherItems = [
+    { id: uid(), description: 'Renew G2 review campaign', dueDate: daysFromNow(1).slice(0, 10), completed: false, createdAt: new Date().toISOString(), completedAt: null },
+    { id: uid(), description: 'Update BD pipeline deck for leadership review', dueDate: daysFromNow(-2).slice(0, 10), completed: false, createdAt: new Date().toISOString(), completedAt: null },
+  ];
+
+  function findOtherItem(itemId) {
+    const item = otherItems.find((i) => i.id === itemId);
+    if (!item) throw new Error('Item not found');
+    return item;
+  }
+
   function findLead(id) {
     const lead = leads.find((l) => l.id === id);
     if (!lead) throw new Error('Lead not found');
@@ -142,7 +153,8 @@
       const lead = {
         id: uid(), type: 'lead', companyName: body.companyName.trim(),
         contactName: body.contactName || '', contactEmail: body.contactEmail || '',
-        contactPhone: body.contactPhone || '', dealValue: Number(body.dealValue) || 0,
+        contactPhone: body.contactPhone || '', clientPartner: body.clientPartner || '',
+        dealValue: Number(body.dealValue) || 0,
         stage: 'qualification', archived: false, createdAt: now, updatedAt: now,
         stageHistory: [{ stage: 'qualification', enteredAt: now }],
         actionItems: [], calendarEvents: [], communications: [],
@@ -153,7 +165,7 @@
 
     updateLead: (id, body) => {
       const lead = findLead(id);
-      ['companyName', 'contactName', 'contactEmail', 'contactPhone', 'dealValue'].forEach((f) => {
+      ['companyName', 'contactName', 'contactEmail', 'contactPhone', 'clientPartner', 'dealValue'].forEach((f) => {
         if (body[f] !== undefined) lead[f] = f === 'dealValue' ? Number(body[f]) || 0 : body[f];
       });
       lead.updatedAt = new Date().toISOString();
@@ -269,6 +281,34 @@
       });
       lead.updatedAt = new Date().toISOString();
       return lead;
+    },
+
+    getOtherItems: () => otherItems,
+
+    addOtherItem: (body) => {
+      if (!body.description || !body.dueDate) throw new Error('description and dueDate are required');
+      otherItems.push({
+        id: uid(), description: body.description, dueDate: body.dueDate,
+        completed: false, createdAt: new Date().toISOString(), completedAt: null,
+      });
+      return otherItems;
+    },
+
+    updateOtherItem: (itemId, body) => {
+      const item = findOtherItem(itemId);
+      if (body.description !== undefined) {
+        if (!body.description.trim()) throw new Error('description cannot be empty');
+        item.description = body.description.trim();
+      }
+      if (body.dueDate !== undefined) {
+        if (!body.dueDate) throw new Error('dueDate cannot be empty');
+        item.dueDate = body.dueDate;
+      }
+      if (body.completed !== undefined) {
+        item.completed = body.completed !== false;
+        item.completedAt = item.completed ? new Date().toISOString() : null;
+      }
+      return otherItems;
     },
 
     getCalendarFeed: (days) => {

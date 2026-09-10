@@ -45,6 +45,25 @@ function leadHasOverdue(lead) {
   return lead.actionItems.some((a) => !a.completed && a.dueDate.slice(0, 10) < todayStr);
 }
 
+function leadHasUpcomingCall(lead) {
+  const now = new Date();
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() + 2);
+  return lead.calendarEvents.some((e) => {
+    const d = new Date(e.eventDate);
+    return d >= now && d <= cutoff;
+  });
+}
+
+function leadHasUpcomingActionDue(lead) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const cutoffStr = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return lead.actionItems.some((a) => {
+    const d = a.dueDate.slice(0, 10);
+    return !a.completed && d >= todayStr && d <= cutoffStr;
+  });
+}
+
 function lastCommunication(lead) {
   if (!lead.communications.length) return null;
   return [...lead.communications].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0];
@@ -135,10 +154,15 @@ function buildCard(lead) {
   const comm = lastCommunication(lead);
   const overdue = leadHasOverdue(lead);
 
-  let badge = '';
-  if (isWin) badge = '<span class="card-badge won">Won</span>';
-  else if (isLost) badge = '<span class="card-badge lost">Lost</span>';
-  else if (overdue) badge = '<span class="card-badge overdue">Overdue</span>';
+  const badges = [];
+  if (isWin) badges.push({ text: 'Won', cls: 'won' });
+  if (isLost) badges.push({ text: 'Lost', cls: 'lost' });
+  if (overdue) badges.push({ text: 'Overdue', cls: 'overdue' });
+  if (leadHasUpcomingCall(lead)) badges.push({ text: 'Upcoming call', cls: 'upcoming' });
+  if (leadHasUpcomingActionDue(lead)) badges.push({ text: 'Action due soon', cls: 'upcoming' });
+  const badgesHtml = badges.slice(0, 5)
+    .map((b) => `<span class="card-badge ${b.cls}">${escapeHtml(b.text)}</span>`)
+    .join('');
 
   const activeIdx = activeStages().findIndex((s) => s.key === lead.stage);
   const isActiveStage = activeIdx !== -1;
@@ -161,9 +185,10 @@ function buildCard(lead) {
   card.innerHTML = `
     <div class="card-top">
       <div class="card-company">${escapeHtml(lead.companyName)}</div>
-      ${badge}
     </div>
+    ${badgesHtml ? `<div class="card-badges">${badgesHtml}</div>` : ''}
     ${lead.contactName ? `<div class="card-contact">${escapeHtml(lead.contactName)}</div>` : ''}
+    ${lead.clientPartner ? `<div class="card-partner">Partner: ${escapeHtml(lead.clientPartner)}</div>` : ''}
     <div class="card-value">${formatCurrency(lead.dealValue)}</div>
     ${comm ? `<div class="card-last-comm">${escapeHtml(comm.type)}: ${escapeHtml(comm.description)}</div>` : ''}
     <div class="card-progress-track"><div class="card-progress-fill" style="width:${stage ? stage.probability : 0}%"></div></div>
@@ -236,15 +261,6 @@ function wireStaticEvents() {
 
   document.getElementById('newLeadBtn').addEventListener('click', () => openModal('newLeadModal'));
 
-  // Delegated on document (rather than bound once to the buttons present at
-  // load) because leadModalFooter's Close button is re-created by innerHTML
-  // on every renderLeadModal() call, so a one-time querySelectorAll binding
-  // would miss it.
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-close]');
-    if (btn) closeModal(btn.dataset.close);
-  });
-
   document.getElementById('newLeadForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -253,6 +269,7 @@ function wireStaticEvents() {
       contactName: form.contactName.value,
       contactEmail: form.contactEmail.value,
       contactPhone: form.contactPhone.value,
+      clientPartner: form.clientPartner.value,
       dealValue: form.dealValue.value,
     };
     try {
@@ -265,14 +282,6 @@ function wireStaticEvents() {
       showToast(err.message, true);
     }
   });
-}
-
-function openModal(id) {
-  document.getElementById(id).classList.remove('hidden');
-}
-function closeModal(id) {
-  document.getElementById(id).classList.add('hidden');
-  if (id === 'leadModal') activeLeadId = null;
 }
 
 /* ---------------------------------------------------------------------
@@ -310,6 +319,7 @@ function renderLeadModal() {
         <div class="lead-summary-field"><span class="label">Contact</span>${escapeHtml(lead.contactName) || '&mdash;'}</div>
         <div class="lead-summary-field"><span class="label">Email</span>${escapeHtml(lead.contactEmail) || '&mdash;'}</div>
         <div class="lead-summary-field"><span class="label">Phone</span>${escapeHtml(lead.contactPhone) || '&mdash;'}</div>
+        <div class="lead-summary-field"><span class="label">Client Partner</span>${escapeHtml(lead.clientPartner) || '&mdash;'}</div>
         <div class="lead-summary-field"><span class="label">Created</span>${formatDate(lead.createdAt)}</div>
       </div>
       <button class="btn-text" data-toggle="editLeadForm" style="padding-left:0;">Edit details</button>
@@ -324,6 +334,9 @@ function renderLeadModal() {
         </div>
         <div class="field-row">
           <div class="field"><label>Contact phone</label><input name="contactPhone" value="${escapeHtml(lead.contactPhone)}" /></div>
+          <div class="field"><label>Client Partner</label><input name="clientPartner" value="${escapeHtml(lead.clientPartner)}" /></div>
+        </div>
+        <div class="field-row">
           <div class="field" style="display:flex;align-items:flex-end;"><button type="submit" class="btn btn-secondary">Save</button></div>
         </div>
       </form>
@@ -468,6 +481,7 @@ function wireLeadModalEvents(lead) {
           contactName: f.contactName.value,
           contactEmail: f.contactEmail.value,
           contactPhone: f.contactPhone.value,
+          clientPartner: f.clientPartner.value,
           dealValue: f.dealValue.value,
         });
         await loadLeads();

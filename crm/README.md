@@ -21,8 +21,9 @@ crm-poc/
 ├── frontend/                    Static site (no build step -- plain HTML/CSS/JS)
 │   ├── index.html               The board
 │   ├── calendar.html            Agenda view of upcoming/overdue items
+│   ├── otheritems.html          BD action items not tied to a lead
 │   ├── styles.css               All styling; brand colors as CSS variables
-│   ├── app.js / calendar.js     Page logic
+│   ├── app.js / calendar.js / otheritems.js   Page logic
 │   ├── api-client.js            Fetch helpers + demo-mode fallback
 │   ├── demoData.js              In-memory sample data (used only if /api is unreachable)
 │   └── assets/                  Logos (see "Logos" section below)
@@ -177,6 +178,29 @@ outside of Cosmos/Slack/Azure themselves.
   Cosmos key included:
   `az staticwebapp appsettings list --name fenway-crm-poc --resource-group fenway-crm-poc-rg`
 
+### Test the Slack digest on demand
+
+Don't wait for the 8am schedule to check that Cosmos + the webhook are
+wired up correctly:
+
+```bash
+curl -X POST https://<your-swa-hostname>/api/notify/test
+```
+
+This runs the exact same query-and-post logic as the scheduled
+`dailyNotifier` job -- a successful call here means the real 8am post will
+work too. It responds with one of:
+
+- `{"posted": true, "message": "..."}` -- posted to Slack; `message` is the
+  exact text that went out, handy for checking formatting without leaving
+  the terminal.
+- `{"posted": false, "reason": "..."}` -- nothing sent. The digest is
+  gated on **action items specifically**: if there are no lead action items
+  due or overdue, it won't post even if calendar events or Other Items are
+  pending. Add an action item due today (or in the past) to any lead and
+  try again -- or if the reason says `SLACK_WEBHOOK_URL is not set`, that
+  app setting is missing (see step 5 above).
+
 ---
 
 ## 6. Logos
@@ -204,7 +228,8 @@ under those same names works too.
 5. Add an action item with yesterday's date -- confirm it shows an "Overdue" badge on the card and in the Calendar tab.
 6. Add a calendar event and a communication; confirm the communication shows as "Last communication" on the card.
 7. Archive a lead, then check "Show archived" to confirm it's hidden/shown correctly.
-8. Fire the Slack digest on demand instead of waiting for its 8am schedule: `curl -X POST https://<your-swa-hostname>/api/notify/test`. It runs the exact same query-and-post logic as the scheduled job and returns `{"posted": false, "reason": "..."}` if there's nothing overdue/upcoming to send -- add an action item due today first if you want to force a real Slack post.
+8. Run the Slack digest on demand (see "Test the Slack digest on demand" under step 5) -- confirm it posts and the message reads correctly.
+9. Add an item on the "Other Items" tab with yesterday's date, then re-run the digest -- confirm it shows up under "Due today" and "Other items" in the Slack message, marked overdue.
 
 ---
 
@@ -223,6 +248,11 @@ tested at this scale, so the model favors simplicity over cleverness:
   definitions and brand colors as data. The frontend fetches it once per
   page load and applies colors as CSS variables -- so "configurable brand
   colors" means editing that document, not editing CSS or redeploying.
+- **One document (`other-items`)**, also in the `config` container, holds
+  the "Other Items" list (BD action items not tied to a lead) as a single
+  array -- same read-modify-write pattern as `app-config`, no new container
+  needed. Fine at this volume; if that list ever grows into the hundreds,
+  it'd be worth splitting into one document per item like leads are.
 - **Communications are a full history, not a single field.** The UI surfaces
   the most recent entry as "Last communication" and lets you expand the
   rest, so nothing is overwritten when a new one is logged.

@@ -469,7 +469,26 @@ input:focus, textarea:focus, select:focus {
   color: var(--brand-white);
 }
 
+.card-badge.upcoming {
+  background: var(--color-lost-bg);
+  color: var(--brand-slate-blue);
+  border: 1px solid var(--brand-slate-blue);
+}
+
+.card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
 .card-contact {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.card-partner {
   font-size: 12px;
   color: var(--color-text-muted);
   margin-top: 2px;
@@ -764,6 +783,26 @@ input:focus, textarea:focus, select:focus {
   color: var(--color-text-muted);
   font-size: 13px;
   padding: 20px 0;
+}
+
+/* ---------------------------------------------------------------------
+   Other items page
+--------------------------------------------------------------------- */
+.other-items-page {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+.other-items-page h1 {
+  font-size: 20px;
+  color: var(--brand-midnight-blue);
+  margin: 0 0 4px;
+}
+
+.other-items-page .detail-item {
+  font-size: 13px;
+  padding: 10px 12px;
 }
 
 .toast {

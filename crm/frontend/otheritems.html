@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fenway Group | Other Items</title>
+<link rel="icon" type="image/png" href="assets/fenway-logo-icon.png" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <img src="assets/fenway-logo-full.png" data-logo="full" alt="Fenway Group" class="app-logo" />
+  <nav class="app-nav">
+    <a href="index.html">Board</a>
+    <a href="calendar.html">Calendar</a>
+    <a href="otheritems.html" class="active">Other Items</a>
+  </nav>
+  <div class="header-actions">
+    <button id="newItemBtn" class="btn btn-primary">+ New item</button>
+  </div>
+</header>
+
+<main class="other-items-page">
+  <h1>Other Items</h1>
+  <p class="calendar-subhead">BD action items that aren't tied to a specific lead.</p>
+  <ul class="detail-list" id="otherItemsList">
+    <!-- rendered by otheritems.js -->
+  </ul>
+</main>
+
+<!-- New item modal -->
+<div id="newItemModal" class="modal-overlay hidden">
+  <div class="modal modal-small">
+    <div class="modal-header">
+      <h2>New item</h2>
+      <button class="modal-close" data-close="newItemModal">&times;</button>
+    </div>
+    <form id="newItemForm">
+      <div class="modal-body">
+        <div class="field">
+          <label for="oiDescription">Description *</label>
+          <input id="oiDescription" name="description" required />
+        </div>
+        <div class="field">
+          <label for="oiDueDate">Due date *</label>
+          <input id="oiDueDate" name="dueDate" type="date" required />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close="newItemModal">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add item</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="api-client.js"></script>
+<script src="demoData.js"></script>
+<script src="otheritems.js"></script>
+</body>
+</html>

@@ -1,13 +1,31 @@
-const { leadsContainer } = require('./cosmosClient');
+const { leadsContainer, configContainer } = require('./cosmosClient');
 const { addBusinessDays } = require('./dateUtils');
 
 const LOOKAHEAD_DAYS = Number(process.env.NOTIFIER_LOOKAHEAD_DAYS) || 5;
+const OTHER_ITEMS_DOC_ID = 'other-items';
+
+async function fetchOtherItems() {
+  try {
+    const { resource } = await configContainer.item(OTHER_ITEMS_DOC_ID, OTHER_ITEMS_DOC_ID).read();
+    return (resource && resource.items) || [];
+  } catch {
+    return [];
+  }
+}
+
+function formatEventWhen(eventDate) {
+  return new Date(eventDate).toLocaleString('en-US', {
+    timeZone: 'America/Chicago',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
 
 /**
- * Builds the pipeline digest from current lead data and posts it to Slack.
- * Shared by the scheduled dailyNotifier timer and the on-demand test
- * endpoint so both exercise the exact same query + formatting + webhook
- * call, instead of testing a re-implementation of it.
+ * Builds the pipeline digest from current lead + other-item data and posts
+ * it to Slack. Shared by the scheduled dailyNotifier timer and the
+ * on-demand test endpoint so both exercise the exact same query +
+ * formatting + webhook call, instead of testing a re-implementation of it.
  */
 async function runDigest(context) {
   const webhookUrl = process.env.SLACK_WEBHOOK_URL;
@@ -38,45 +56,63 @@ async function runDigest(context) {
     ],
   };
 
-  let actionItems = [];
-  let events = [];
-  const [actionResult, eventResult] = await Promise.all([
+  const [actionResult, eventResult, allOtherItems] = await Promise.all([
     leadsContainer.items.query(actionQuery).fetchAll(),
     leadsContainer.items.query(eventQuery).fetchAll(),
+    fetchOtherItems(),
   ]);
-  actionItems = actionResult.resources;
-  events = eventResult.resources;
 
-  const overdue = actionItems.filter((a) => a.dueDate.slice(0, 10) < todayDateStr);
-  const upcoming = actionItems.filter((a) => a.dueDate.slice(0, 10) >= todayDateStr);
+  const actionItems = [...actionResult.resources].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  const events = [...eventResult.resources].sort((a, b) => a.eventDate.localeCompare(b.eventDate));
+  const otherItems = allOtherItems
+    .filter((i) => !i.completed && i.dueDate <= cutoffDateStr)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
-  if (overdue.length === 0 && upcoming.length === 0 && events.length === 0) {
-    return { posted: false, reason: 'Nothing overdue or upcoming -- nothing to post' };
+  // Gated on action items specifically -- calendar events and other items
+  // alone don't trigger a post, even if either has entries due.
+  if (actionItems.length === 0) {
+    return { posted: false, reason: 'No action items due -- nothing to post' };
   }
+
+  const isToday = (dateStr) => dateStr.slice(0, 10) === todayDateStr;
+  const todayEvents = events.filter((e) => isToday(e.eventDate));
+  const todayActions = actionItems.filter((a) => isToday(a.dueDate));
+  const todayOther = otherItems.filter((o) => isToday(o.dueDate));
 
   const lines = [`*Pipeline digest -- next ${LOOKAHEAD_DAYS} business days*`];
 
-  if (overdue.length) {
-    lines.push('', '*Overdue:*');
-    overdue.forEach((a) =>
-      lines.push(`- :red_circle: ${a.companyName} -- ${a.description} (was due ${a.dueDate.slice(0, 10)})`)
-    );
+  // "Due today" surfaces everything happening today up front, regardless of
+  // type -- items listed here also still appear below in their normal
+  // type-categorized section.
+  if (todayEvents.length || todayActions.length || todayOther.length) {
+    lines.push('', '*Due today:*');
+    todayEvents.forEach((e) => lines.push(`- :calendar: ${e.companyName} -- ${e.title} (${formatEventWhen(e.eventDate)})`));
+    todayActions.forEach((a) => lines.push(`- :white_check_mark: ${a.companyName} -- ${a.description}`));
+    todayOther.forEach((o) => lines.push(`- :round_pushpin: ${o.description}`));
   }
-  if (upcoming.length) {
-    lines.push('', '*Action items due:*');
-    upcoming.forEach((a) =>
-      lines.push(`- ${a.companyName} -- ${a.description} (due ${a.dueDate.slice(0, 10)})`)
-    );
-  }
+
+  // Below: categorized by type (Calendar, then Action items, then Other),
+  // each internally ordered by due date. Overdue action/other items are
+  // flagged inline rather than split into a separate section -- sorting by
+  // due date already puts them first within their category.
   if (events.length) {
     lines.push('', '*Calendar events:*');
-    events.forEach((e) => {
-      const when = new Date(e.eventDate).toLocaleString('en-US', {
-        timeZone: 'America/Chicago',
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      });
-      lines.push(`- ${e.companyName} -- ${e.title} (${when})`);
+    events.forEach((e) => lines.push(`- ${e.companyName} -- ${e.title} (${formatEventWhen(e.eventDate)})`));
+  }
+
+  if (actionItems.length) {
+    lines.push('', '*Action items:*');
+    actionItems.forEach((a) => {
+      const overdue = a.dueDate.slice(0, 10) < todayDateStr;
+      lines.push(`- ${overdue ? ':red_circle: ' : ''}${a.companyName} -- ${a.description} (due ${a.dueDate.slice(0, 10)})`);
+    });
+  }
+
+  if (otherItems.length) {
+    lines.push('', '*Other items:*');
+    otherItems.forEach((o) => {
+      const overdue = o.dueDate.slice(0, 10) < todayDateStr;
+      lines.push(`- ${overdue ? ':red_circle: ' : ''}${o.description} (due ${o.dueDate.slice(0, 10)})`);
     });
   }
 

@@ -34,6 +34,14 @@ function demoRoute(method, pathAndQuery, body) {
   if (parts[0] === 'config') return window.DemoApi.getConfig();
   if (parts[0] === 'calendar') return window.DemoApi.getCalendarFeed(Number(query.get('days')) || 5);
 
+  if (parts[0] === 'other-items') {
+    if (parts.length === 1) {
+      if (method === 'GET') return window.DemoApi.getOtherItems();
+      if (method === 'POST') return window.DemoApi.addOtherItem(body);
+    }
+    if (parts.length === 2 && method === 'PATCH') return window.DemoApi.updateOtherItem(parts[1], body);
+  }
+
   if (parts[0] === 'leads') {
     if (parts.length === 1) {
       if (method === 'GET') return window.DemoApi.getLeads(query.get('archived') === 'true');
@@ -151,6 +159,22 @@ function toDatetimeLocalValue(iso) {
   const pad = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+function openModal(id) {
+  document.getElementById(id).classList.remove('hidden');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+  if (id === 'leadModal' && typeof activeLeadId !== 'undefined') activeLeadId = null;
+}
+
+// Delegated on document (rather than bound once to the buttons present at
+// load) because some modal footers are re-created by innerHTML after the
+// initial render, so a one-time querySelectorAll binding would miss them.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-close]');
+  if (btn) closeModal(btn.dataset.close);
+});
 
 function showToast(message, isError) {
   const el = document.createElement('div');
