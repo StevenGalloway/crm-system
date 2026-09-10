@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 const { leadsContainer } = require('../cosmosClient');
 
-const EDITABLE_FIELDS = ['companyName', 'contactName', 'contactEmail', 'contactPhone', 'clientPartner', 'dealValue'];
+const EDITABLE_FIELDS = ['companyName', 'dealName', 'contactName', 'contactEmail', 'contactPhone', 'clientPartner', 'dealValue'];
 
 app.http('updateLead', {
   methods: ['PATCH'],

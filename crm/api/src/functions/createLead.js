@@ -28,6 +28,7 @@ app.http('createLead', {
       id: randomUUID(),
       type: 'lead',
       companyName: body.companyName.trim(),
+      dealName: body.dealName || '',
       contactName: body.contactName || '',
       contactEmail: body.contactEmail || '',
       contactPhone: body.contactPhone || '',

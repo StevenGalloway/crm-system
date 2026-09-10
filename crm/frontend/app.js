@@ -25,7 +25,8 @@ async function init() {
 // the user -- they see exactly what's stored and can consciously change it.
 function populatePartnerSelect(select, currentValue) {
   const partners = (config.clientPartners || []).slice();
-  if (currentValue && !partners.includes(currentValue)) partners.unshift(currentValue);
+  if (currentValue && !partners.includes(currentValue)) partners.push(currentValue);
+  partners.sort((a, b) => a.localeCompare(b));
   select.innerHTML =
     '<option value="">Unassigned</option>' +
     partners.map((name) => `<option value="${escapeHtml(name)}" ${name === currentValue ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('');
@@ -78,9 +79,31 @@ function leadHasUpcomingActionDue(lead) {
   });
 }
 
+// The earliest date-only string across a lead's incomplete action items
+// (overdue ones included -- still an open concern) and its future calendar
+// events (past ones excluded -- already happened, not "next" anymore).
+// Null if there's nothing pending, so those leads sort to the end.
+function leadNextDate(lead) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const dates = [];
+  lead.actionItems.forEach((a) => {
+    if (!a.completed) dates.push(a.dueDate.slice(0, 10));
+  });
+  lead.calendarEvents.forEach((e) => {
+    const d = e.eventDate.slice(0, 10);
+    if (d >= todayStr) dates.push(d);
+  });
+  if (!dates.length) return null;
+  return dates.sort()[0];
+}
+
 function lastCommunication(lead) {
   if (!lead.communications.length) return null;
   return [...lead.communications].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0];
+}
+
+function formatLeadTitle(lead) {
+  return lead.dealName ? `${lead.companyName} - ${lead.dealName}` : lead.companyName;
 }
 
 /* ---------------------------------------------------------------------
@@ -133,7 +156,16 @@ function buildColumn(stage, leadsInStage) {
     body.innerHTML = `<div class="column-empty">No leads here</div>`;
   } else {
     leadsInStage
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .sort((a, b) => {
+        const da = leadNextDate(a);
+        const db = leadNextDate(b);
+        if (da !== db) {
+          if (da === null) return 1; // no upcoming date -- sort to the end
+          if (db === null) return -1;
+          return da.localeCompare(db); // soonest first
+        }
+        return (b.dealValue || 0) - (a.dealValue || 0); // tiebreak: biggest deal first
+      })
       .forEach((lead) => body.appendChild(buildCard(lead)));
   }
   col.appendChild(body);
@@ -198,7 +230,7 @@ function buildCard(lead) {
 
   card.innerHTML = `
     <div class="card-top">
-      <div class="card-company">${escapeHtml(lead.companyName)}</div>
+      <div class="card-company">${escapeHtml(formatLeadTitle(lead))}</div>
     </div>
     ${badgesHtml ? `<div class="card-badges">${badgesHtml}</div>` : ''}
     ${lead.contactName ? `<div class="card-contact">${escapeHtml(lead.contactName)}</div>` : ''}
@@ -280,6 +312,7 @@ function wireStaticEvents() {
     const form = e.target;
     const payload = {
       companyName: form.companyName.value,
+      dealName: form.dealName.value,
       contactName: form.contactName.value,
       contactEmail: form.contactEmail.value,
       contactPhone: form.contactPhone.value,
@@ -295,6 +328,26 @@ function wireStaticEvents() {
     } catch (err) {
       showToast(err.message, true);
     }
+  });
+
+  // Closing the lead modal (the header × or footer Close button) while the
+  // edit form is open with unsaved changes would otherwise discard them
+  // silently -- guard it so the user gets a chance to save first.
+  registerModalCloseGuard('leadModal', async () => {
+    const lead = currentLead();
+    const editForm = document.getElementById('editLeadForm');
+    if (lead && editForm && !editForm.classList.contains('hidden') && isEditFormDirty(lead, editForm)) {
+      if (confirm('You have unsaved changes to this lead. Save them before closing?')) {
+        try {
+          await saveLeadEdit(lead, editForm);
+          showToast('Lead updated');
+        } catch (err) {
+          showToast(err.message, true);
+          return; // keep the modal open so the user doesn't lose the edit
+        }
+      }
+    }
+    closeModal('leadModal');
   });
 }
 
@@ -313,12 +366,35 @@ function currentLead() {
   return leads.find((l) => l.id === activeLeadId);
 }
 
+const EDITABLE_LEAD_FIELDS = ['companyName', 'dealName', 'contactName', 'contactEmail', 'contactPhone', 'clientPartner', 'dealValue'];
+
+function getEditFormValues(form) {
+  const values = {};
+  EDITABLE_LEAD_FIELDS.forEach((field) => {
+    values[field] = form[field].value;
+  });
+  return values;
+}
+
+function isEditFormDirty(lead, form) {
+  const values = getEditFormValues(form);
+  return EDITABLE_LEAD_FIELDS.some((field) => {
+    const original = field === 'dealValue' ? String(lead.dealValue) : lead[field] || '';
+    return values[field] !== original;
+  });
+}
+
+async function saveLeadEdit(lead, form) {
+  await apiPatch(`/leads/${lead.id}`, getEditFormValues(form));
+  await loadLeads();
+}
+
 function renderLeadModal() {
   const lead = currentLead();
   if (!lead) return;
   const stage = stageByKey(lead.stage);
 
-  document.getElementById('ldCompanyName').textContent = lead.companyName;
+  document.getElementById('ldCompanyName').textContent = formatLeadTitle(lead);
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const sortedActions = [...lead.actionItems].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
@@ -329,6 +405,7 @@ function renderLeadModal() {
     <div class="modal-section">
       <div class="lead-summary-grid">
         <div class="lead-summary-field"><span class="label">Stage</span>${escapeHtml(stage ? stage.label : lead.stage)} (${stage ? stage.probability : 0}%)</div>
+        <div class="lead-summary-field"><span class="label">Deal name</span>${escapeHtml(lead.dealName) || '&mdash;'}</div>
         <div class="lead-summary-field"><span class="label">Deal value</span>${formatCurrency(lead.dealValue)}</div>
         <div class="lead-summary-field"><span class="label">Contact</span>${escapeHtml(lead.contactName) || '&mdash;'}</div>
         <div class="lead-summary-field"><span class="label">Email</span>${escapeHtml(lead.contactEmail) || '&mdash;'}</div>
@@ -340,17 +417,18 @@ function renderLeadModal() {
       <form id="editLeadForm" class="hidden" style="margin-top:10px;">
         <div class="field-row">
           <div class="field"><label>Company</label><input name="companyName" value="${escapeHtml(lead.companyName)}" /></div>
+          <div class="field"><label>Deal name</label><input name="dealName" value="${escapeHtml(lead.dealName)}" /></div>
+        </div>
+        <div class="field-row">
           <div class="field"><label>Deal value ($)</label><input name="dealValue" type="number" min="0" step="1000" value="${lead.dealValue}" /></div>
-        </div>
-        <div class="field-row">
           <div class="field"><label>Contact name</label><input name="contactName" value="${escapeHtml(lead.contactName)}" /></div>
+        </div>
+        <div class="field-row">
           <div class="field"><label>Contact email</label><input name="contactEmail" value="${escapeHtml(lead.contactEmail)}" /></div>
-        </div>
-        <div class="field-row">
           <div class="field"><label>Contact phone</label><input name="contactPhone" value="${escapeHtml(lead.contactPhone)}" /></div>
-          <div class="field"><label>Client Partner</label><select name="clientPartner" id="editClientPartner"></select></div>
         </div>
         <div class="field-row">
+          <div class="field"><label>Client Partner</label><select name="clientPartner" id="editClientPartner"></select></div>
           <div class="field" style="display:flex;align-items:flex-end;"><button type="submit" class="btn btn-secondary">Save</button></div>
         </div>
       </form>
@@ -490,17 +568,8 @@ function wireLeadModalEvents(lead) {
   if (editForm) {
     editForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const f = e.target;
       try {
-        await apiPatch(`/leads/${lead.id}`, {
-          companyName: f.companyName.value,
-          contactName: f.contactName.value,
-          contactEmail: f.contactEmail.value,
-          contactPhone: f.contactPhone.value,
-          clientPartner: f.clientPartner.value,
-          dealValue: f.dealValue.value,
-        });
-        await loadLeads();
+        await saveLeadEdit(lead, e.target);
         renderLeadModal();
         showToast('Lead updated');
       } catch (err) {

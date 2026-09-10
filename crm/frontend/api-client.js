@@ -207,12 +207,26 @@ function closeModal(id) {
   if (id === 'leadModal' && typeof activeLeadId !== 'undefined') activeLeadId = null;
 }
 
+// A page can register a guard for a modal id to intercept its [data-close]
+// buttons -- e.g. to check for unsaved edits and confirm/save before the
+// modal actually closes. The guard owns calling closeModal() itself (it
+// may need to do so after an async save), so registering one suppresses
+// the default immediate-close behavior for that id.
+const modalCloseGuards = {};
+function registerModalCloseGuard(id, guardFn) {
+  modalCloseGuards[id] = guardFn;
+}
+
 // Delegated on document (rather than bound once to the buttons present at
 // load) because some modal footers are re-created by innerHTML after the
 // initial render, so a one-time querySelectorAll binding would miss them.
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-close]');
-  if (btn) closeModal(btn.dataset.close);
+  if (!btn) return;
+  const id = btn.dataset.close;
+  const guard = modalCloseGuards[id];
+  if (guard) guard();
+  else closeModal(id);
 });
 
 function showToast(message, isError) {

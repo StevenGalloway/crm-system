@@ -55,7 +55,7 @@
     const now = new Date().toISOString();
     return [
       {
-        id: uid(), type: 'lead', companyName: 'Harbor Freight Logistics', contactName: 'Dana Reyes',
+        id: uid(), type: 'lead', companyName: 'Harbor Freight Logistics', dealName: 'Fleet Telematics', contactName: 'Dana Reyes',
         contactEmail: 'dana@harborfreight.example', contactPhone: '555-0101', clientPartner: 'Sam Whitfield',
         dealValue: 84000, stage: 'validation', archived: false, createdAt: now, updatedAt: now,
         stageHistory: [
@@ -75,7 +75,7 @@
         ],
       },
       {
-        id: uid(), type: 'lead', companyName: 'Northgate Credit Union', contactName: 'Marcus Ito',
+        id: uid(), type: 'lead', companyName: 'Northgate Credit Union', dealName: 'Core Banking Migration', contactName: 'Marcus Ito',
         contactEmail: 'mito@northgate.example', contactPhone: '555-0110', clientPartner: 'Renee Ashby',
         dealValue: 152000, stage: 'decision_due', archived: false, createdAt: now, updatedAt: now,
         stageHistory: [{ stage: 'qualification', enteredAt: daysFromNow(-30) }],
@@ -213,7 +213,7 @@
       if (!body.companyName || !body.companyName.trim()) throw new Error('companyName is required');
       const now = new Date().toISOString();
       const lead = {
-        id: uid(), type: 'lead', companyName: body.companyName.trim(),
+        id: uid(), type: 'lead', companyName: body.companyName.trim(), dealName: body.dealName || '',
         contactName: body.contactName || '', contactEmail: body.contactEmail || '',
         contactPhone: body.contactPhone || '', clientPartner: body.clientPartner || '',
         dealValue: Number(body.dealValue) || 0,
@@ -227,7 +227,7 @@
 
     updateLead: (id, body) => {
       const lead = findLead(id);
-      ['companyName', 'contactName', 'contactEmail', 'contactPhone', 'clientPartner', 'dealValue'].forEach((f) => {
+      ['companyName', 'dealName', 'contactName', 'contactEmail', 'contactPhone', 'clientPartner', 'dealValue'].forEach((f) => {
         if (body[f] !== undefined) lead[f] = f === 'dealValue' ? Number(body[f]) || 0 : body[f];
       });
       lead.updatedAt = new Date().toISOString();

@@ -17,7 +17,8 @@ async function init() {
 
 function populateOwnerSelect(select, currentValue) {
   const names = contactOwners.map((o) => o.name);
-  if (currentValue && !names.includes(currentValue)) names.unshift(currentValue);
+  if (currentValue && !names.includes(currentValue)) names.push(currentValue);
+  names.sort((a, b) => a.localeCompare(b));
   select.innerHTML =
     '<option value="">Unassigned</option>' +
     names.map((n) => `<option value="${escapeHtml(n)}" ${n === currentValue ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
@@ -45,7 +46,10 @@ function renderList() {
 
   list.innerHTML = sorted.map((c) => {
     if (c.id === editingContactId) {
-      const ownerOptions = ['', ...contactOwners.map((o) => o.name)]
+      const ownerNames = contactOwners.map((o) => o.name);
+      if (c.contactOwner && !ownerNames.includes(c.contactOwner)) ownerNames.push(c.contactOwner);
+      ownerNames.sort((a, b) => a.localeCompare(b));
+      const ownerOptions = ['', ...ownerNames]
         .map((n) => `<option value="${escapeHtml(n)}" ${n === c.contactOwner ? 'selected' : ''}>${n || 'Unassigned'}</option>`)
         .join('');
       return `
