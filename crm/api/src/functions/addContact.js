@@ -3,6 +3,7 @@ const { randomUUID } = require('crypto');
 const { configContainer } = require('../cosmosClient');
 
 const DOC_ID = 'contacts';
+const CONTACT_TYPES = ['Contact', 'Partnership', 'Non-Qualified Lead'];
 
 async function readDoc() {
   try {
@@ -39,6 +40,7 @@ app.http('addContact', {
     const contact = {
       id: randomUUID(),
       name: body.name.trim(),
+      contactType: CONTACT_TYPES.includes(body.contactType) ? body.contactType : 'Contact',
       nextOutreachDate: body.nextOutreachDate,
       nextOutreachAction: body.nextOutreachAction || '',
       contactOwner: body.contactOwner || '',

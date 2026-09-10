@@ -12,12 +12,12 @@
     id: 'app-config',
     type: 'config',
     stages: [
-      { key: 'qualification', label: 'Qualification', probability: 10, order: 1 },
-      { key: 'discovery', label: 'Discovery', probability: 20, order: 2 },
-      { key: 'validation', label: 'Validation', probability: 50, order: 3 },
-      { key: 'decision_due', label: 'Decision Due', probability: 75, order: 4 },
-      { key: 'pending_sale', label: 'Pending Sale', probability: 90, order: 5 },
-      { key: 'win', label: 'Win', probability: 100, order: 6 },
+      { key: 'qualification', label: 'Qualification', probability: 10, order: 1, description: 'Intro to FG and ICP' },
+      { key: 'discovery', label: 'Discovery', probability: 20, order: 2, description: 'Discovery and Ideation Sessions' },
+      { key: 'validation', label: 'Validation', probability: 50, order: 3, description: 'Playbook Delivered' },
+      { key: 'decision_due', label: 'Decision Due', probability: 75, order: 4, description: 'Pre-proposal Review, MSA, SOW' },
+      { key: 'pending_sale', label: 'Pending Sale', probability: 90, order: 5, description: 'Signature Loop, Dev Team Staging' },
+      { key: 'win', label: 'Win', probability: 100, order: 6, description: 'Schedule Welcome to Fenway Group' },
       { key: 'lost', label: 'Lost', probability: 0, order: 99, terminal: true },
     ],
     brand: {
@@ -41,6 +41,13 @@
     contactOwners: [
       { name: 'Sam Whitfield', slackUserId: 'U0DEMO001' },
       { name: 'Renee Ashby', slackUserId: 'U0DEMO002' },
+    ],
+    salesArtifacts: [
+      { id: 'art-icp', name: 'ICP Fit Worksheet', stage: 'qualification' },
+      { id: 'art-discovery-notes', name: 'Discovery Session Notes', stage: 'discovery' },
+      { id: 'art-playbook', name: 'Playbook', stage: 'validation' },
+      { id: 'art-sow', name: 'SOW', stage: 'decision_due' },
+      { id: 'art-msa', name: 'MSA', stage: 'decision_due' },
     ],
     notificationSchedule: { frequency: 'daily', time: '08:00', dayOfWeek: 1, dayOfMonth: 1 },
   };
@@ -161,8 +168,10 @@
   }
 
   let contacts = [
-    { id: uid(), name: 'Jane Doe', nextOutreachDate: daysFromNow(1).slice(0, 10), nextOutreachAction: 'Follow up on pricing questions from last call', contactOwner: 'Sam Whitfield', outreachNotifiedFor: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-    { id: uid(), name: 'Mike Chen', nextOutreachDate: daysFromNow(-1).slice(0, 10), nextOutreachAction: 'Send updated proposal', contactOwner: 'Renee Ashby', outreachNotifiedFor: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: uid(), name: 'Jane Doe', contactType: 'Contact', nextOutreachDate: daysFromNow(1).slice(0, 10), nextOutreachAction: 'Follow up on pricing questions from last call', contactOwner: 'Sam Whitfield', outreachNotifiedFor: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: uid(), name: 'Mike Chen', contactType: 'Contact', nextOutreachDate: daysFromNow(-1).slice(0, 10), nextOutreachAction: 'Send updated proposal', contactOwner: 'Renee Ashby', outreachNotifiedFor: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: uid(), name: 'Consulting Partners LLC', contactType: 'Partnership', nextOutreachDate: daysFromNow(4).slice(0, 10), nextOutreachAction: 'Quarterly check-in on referral pipeline', contactOwner: 'Sam Whitfield', outreachNotifiedFor: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: uid(), name: 'Riverside Manufacturing', contactType: 'Non-Qualified Lead', nextOutreachDate: daysFromNow(14).slice(0, 10), nextOutreachAction: 'Re-check budget in Q2', contactOwner: '', outreachNotifiedFor: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
   ];
 
   function findContact(contactId) {
@@ -219,7 +228,7 @@
         dealValue: Number(body.dealValue) || 0,
         stage: 'qualification', archived: false, createdAt: now, updatedAt: now,
         stageHistory: [{ stage: 'qualification', enteredAt: now }],
-        actionItems: [], calendarEvents: [], communications: [],
+        actionItems: [], calendarEvents: [], communications: [], completedArtifactIds: [],
       };
       leads.unshift(lead);
       return lead;
@@ -345,6 +354,17 @@
       return lead;
     },
 
+    updateLeadArtifact: (id, artifactId, body) => {
+      const lead = findLead(id);
+      const completed = body.completed !== false;
+      const current = new Set(lead.completedArtifactIds || []);
+      if (completed) current.add(artifactId);
+      else current.delete(artifactId);
+      lead.completedArtifactIds = [...current];
+      lead.updatedAt = new Date().toISOString();
+      return lead;
+    },
+
     getOtherItems: () => otherItems,
 
     addOtherItem: (body) => {
@@ -427,8 +447,10 @@
 
     addContact: (body) => {
       if (!body.name || !body.nextOutreachDate) throw new Error('name and nextOutreachDate are required');
+      const contactTypes = ['Contact', 'Partnership', 'Non-Qualified Lead'];
       contacts.push({
-        id: uid(), name: body.name, nextOutreachDate: body.nextOutreachDate, nextOutreachAction: body.nextOutreachAction || '',
+        id: uid(), name: body.name, contactType: contactTypes.includes(body.contactType) ? body.contactType : 'Contact',
+        nextOutreachDate: body.nextOutreachDate, nextOutreachAction: body.nextOutreachAction || '',
         contactOwner: body.contactOwner || '',
         outreachNotifiedFor: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
       });
@@ -438,6 +460,7 @@
     updateContact: (contactId, body) => {
       const contact = findContact(contactId);
       if (body.name !== undefined) contact.name = body.name;
+      if (body.contactType !== undefined) contact.contactType = body.contactType;
       if (body.nextOutreachDate !== undefined) contact.nextOutreachDate = body.nextOutreachDate;
       if (body.nextOutreachAction !== undefined) contact.nextOutreachAction = body.nextOutreachAction;
       if (body.contactOwner !== undefined) contact.contactOwner = body.contactOwner;

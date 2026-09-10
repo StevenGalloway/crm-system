@@ -84,6 +84,7 @@ function demoRoute(method, pathAndQuery, body) {
     if (parts[2] === 'events' && parts.length === 3) return window.DemoApi.addEvent(id, body);
     if (parts[2] === 'events' && parts.length === 4) return window.DemoApi.updateEvent(id, parts[3], body);
     if (parts[2] === 'communications') return window.DemoApi.addCommunication(id, body);
+    if (parts[2] === 'artifacts' && parts.length === 4) return window.DemoApi.updateLeadArtifact(id, parts[3], body);
   }
   throw new Error(`No demo route for ${method} ${pathAndQuery}`);
 }

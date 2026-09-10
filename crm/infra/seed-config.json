@@ -2,12 +2,12 @@
   "id": "app-config",
   "type": "config",
   "stages": [
-    { "key": "qualification", "label": "Qualification", "probability": 10, "order": 1 },
-    { "key": "discovery", "label": "Discovery", "probability": 20, "order": 2 },
-    { "key": "validation", "label": "Validation", "probability": 50, "order": 3 },
-    { "key": "decision_due", "label": "Decision Due", "probability": 75, "order": 4 },
-    { "key": "pending_sale", "label": "Pending Sale", "probability": 90, "order": 5 },
-    { "key": "win", "label": "Win", "probability": 100, "order": 6 },
+    { "key": "qualification", "label": "Qualification", "probability": 10, "order": 1, "description": "Intro to FG and ICP" },
+    { "key": "discovery", "label": "Discovery", "probability": 20, "order": 2, "description": "Discovery and Ideation Sessions" },
+    { "key": "validation", "label": "Validation", "probability": 50, "order": 3, "description": "Playbook Delivered" },
+    { "key": "decision_due", "label": "Decision Due", "probability": 75, "order": 4, "description": "Pre-proposal Review, MSA, SOW" },
+    { "key": "pending_sale", "label": "Pending Sale", "probability": 90, "order": 5, "description": "Signature Loop, Dev Team Staging" },
+    { "key": "win", "label": "Win", "probability": 100, "order": 6, "description": "Schedule Welcome to Fenway Group" },
     { "key": "lost", "label": "Lost", "probability": 0, "order": 99, "terminal": true }
   ],
   "brand": {

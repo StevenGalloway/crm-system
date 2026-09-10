@@ -16,7 +16,7 @@
     <a href="calendar.html">Calendar</a>
     <a href="otheritems.html">One Time BD Action Items</a>
     <a href="recurringtasks.html">Recurring BD Tasks</a>
-    <a href="contacts.html" class="active">Contacts</a>
+    <a href="contacts.html" class="active">Contacts, NQLs, &amp; Partnerships</a>
     <a href="config.html">Configuration</a>
   </nav>
   <div class="header-actions">
@@ -25,11 +25,11 @@
 </header>
 
 <main class="other-items-page">
-  <h1>Contacts</h1>
+  <h1>Contacts, NQLs, &amp; Partnerships</h1>
   <p class="calendar-subhead">Who you're tracking, and when they're next due for outreach.</p>
-  <ul class="detail-list" id="contactsList">
+  <div id="contactsList">
     <!-- rendered by contacts.js -->
-  </ul>
+  </div>
 </main>
 
 <!-- New contact modal -->
@@ -41,9 +41,19 @@
     </div>
     <form id="newContactForm">
       <div class="modal-body">
-        <div class="field">
-          <label for="ctName">Contact name *</label>
-          <input id="ctName" name="name" required />
+        <div class="field-row">
+          <div class="field">
+            <label for="ctName">Contact name *</label>
+            <input id="ctName" name="name" required />
+          </div>
+          <div class="field">
+            <label for="ctType">Type</label>
+            <select id="ctType" name="contactType">
+              <option value="Contact" selected>Contact</option>
+              <option value="Partnership">Partnership</option>
+              <option value="Non-Qualified Lead">Non-Qualified Lead</option>
+            </select>
+          </div>
         </div>
         <div class="field-row">
           <div class="field">

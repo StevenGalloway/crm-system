@@ -267,15 +267,17 @@ under those same names works too.
 1. Open your Static Web App's URL (e.g. `https://fenway-crm-poc.azurestaticapps.net`).
 2. The "Demo mode" banner should be gone -- you're hitting the real API now.
 3. Add a lead -- confirm it lands in Qualification only.
-4. Move it forward, then backward. Mark a different lead Lost, then Reopen it.
+4. Move it forward, then backward using the arrow buttons, or drag it between columns. Drag a different lead onto "Lost" (confirms first), then Reopen it.
 5. Add an action item with yesterday's date -- confirm it shows an "Overdue" badge on the card and in the Calendar tab.
 6. Add a calendar event and a communication; confirm the communication shows as "Last communication" on the card.
 7. Archive a lead, then check "Show archived" to confirm it's hidden/shown correctly.
-8. Run the Slack digest on demand (see "Test on demand, without waiting for a schedule" under step 5) -- confirm it posts and the message reads correctly, including the "Active pipeline (by stage)" section at the bottom.
-9. Add an item on "One Time BD Action Items" with yesterday's date, then re-run the digest -- confirm it shows up under "Due today" and "One Time BD Action Items" in the Slack message, marked overdue.
+8. Run the Slack digest on demand (see "Test on demand, without waiting for a schedule" under step 5) -- confirm it posts and the message reads correctly.
+9. Add an item on "One Time BD Action Items" with yesterday's date, then re-run the digest -- confirm it shows up under ":dart: Due today" AND, separately, under "One Time BD Action Items" marked overdue -- it should NOT show up twice for the same day (today's items only appear in the Due Today section, not duplicated below).
 10. On the Configuration page, add a Client Partner, then assign it to a lead via Edit details -- confirm it shows on the card. Remove that partner from the config list and confirm the lead's Client Partner clears.
 11. Add a recurring task on "Recurring BD Tasks" with today as the start date, run its test endpoint -- confirm a new item appears on "One Time BD Action Items" with today's date.
 12. Add a Contact Owner + their Slack ID on the Configuration page, add a contact due tomorrow on the Contacts tab with that owner, then run the outreach test endpoint -- confirm they get a Slack DM (needs `SLACK_BOT_TOKEN` set).
+13. On the Configuration page, add a Sales Artifact tied to a stage -- confirm it shows up as a checklist item (with that stage named next to it) on every lead, and that checking it off persists after closing and reopening the lead.
+14. On the Contacts tab, add one contact of each type (Contact, Partnership, Non-Qualified Lead) -- confirm they land in three separately-labeled sections, each sorted by next outreach date.
 
 ---
 
@@ -343,12 +345,31 @@ tested at this scale, so the model favors simplicity over cleverness:
   after their due date (still there, just hidden -- toggle "Show
   completed" to see them); incomplete ones never auto-hide, no matter how
   overdue.
-- **Add/rename stages** or **change brand colors, Client Partners, Contact
-  Owners, or the notification schedule:** all editable from the
-  Configuration page now -- no more raw API calls or Data Explorer needed
-  for day-to-day changes. (Stage *reordering* specifically still needs a
-  direct edit to the `app-config` document, since there's no drag-to-reorder
-  UI for that yet.)
+- **Change Client Partners, Contact Owners, Sales Artifacts, or the
+  notification schedule:** all editable from the Configuration page now --
+  no more raw API calls or Data Explorer needed for day-to-day changes.
+- **Add/rename/reorder stages, change probabilities, or edit the lane
+  description shown under each column header:** still needs a direct edit
+  to the `app-config` document's `stages` array (Cosmos Data Explorer, or
+  `PUT /api/config`) -- there's no stage-editing UI yet. To set the lane
+  descriptions to match the ones this POC ships with by default:
+  ```bash
+  curl -X PUT https://<your-swa-hostname>/api/config \
+    -H "Content-Type: application/json" \
+    -d '{"stages":[
+      {"key":"qualification","label":"Qualification","probability":10,"order":1,"description":"Intro to FG and ICP"},
+      {"key":"discovery","label":"Discovery","probability":20,"order":2,"description":"Discovery and Ideation Sessions"},
+      {"key":"validation","label":"Validation","probability":50,"order":3,"description":"Playbook Delivered"},
+      {"key":"decision_due","label":"Decision Due","probability":75,"order":4,"description":"Pre-proposal Review, MSA, SOW"},
+      {"key":"pending_sale","label":"Pending Sale","probability":90,"order":5,"description":"Signature Loop, Dev Team Staging"},
+      {"key":"win","label":"Win","probability":100,"order":6,"description":"Schedule Welcome to Fenway Group"},
+      {"key":"lost","label":"Lost","probability":0,"order":99,"terminal":true}
+    ]}'
+  ```
+  This replaces the whole `stages` array, so only run it as-is if your live
+  stages still match this POC's defaults (key/label/probability/order
+  unchanged) -- if you've customized any of those, merge the `description`
+  fields into your current array instead of overwriting it.
 
 ## Known POC limitations worth knowing about
 

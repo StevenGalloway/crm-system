@@ -16,7 +16,7 @@
     <a href="calendar.html">Calendar</a>
     <a href="otheritems.html">One Time BD Action Items</a>
     <a href="recurringtasks.html">Recurring BD Tasks</a>
-    <a href="contacts.html">Contacts</a>
+    <a href="contacts.html">Contacts, NQLs, &amp; Partnerships</a>
     <a href="config.html" class="active">Configuration</a>
   </nav>
 </header>
@@ -42,6 +42,17 @@
     <form id="addOwnerForm" class="inline-add-form">
       <input class="grow" name="ownerName" placeholder="Owner name" required />
       <input name="ownerSlackId" placeholder="Slack member ID (e.g. U0123ABC)" style="width:220px;" />
+      <button type="submit" class="btn btn-secondary">Add</button>
+    </form>
+  </div>
+
+  <div class="modal-section">
+    <div class="modal-section-header"><h3>Sales Artifacts</h3></div>
+    <p class="detail-item-meta" style="margin-bottom:8px;">Documents/deliverables tracked as a checklist on every lead, each typically associated with a stage.</p>
+    <ul class="detail-list" id="salesArtifactsList"></ul>
+    <form id="addArtifactForm" class="inline-add-form">
+      <input class="grow" name="artifactName" placeholder="Artifact name" required />
+      <select name="artifactStage" id="artifactStageSelect" style="width:160px;"></select>
       <button type="submit" class="btn btn-secondary">Add</button>
     </form>
   </div>

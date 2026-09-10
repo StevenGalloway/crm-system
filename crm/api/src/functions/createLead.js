@@ -42,6 +42,7 @@ app.http('createLead', {
       actionItems: [],
       calendarEvents: [],
       communications: [],
+      completedArtifactIds: [],
     };
 
     try {

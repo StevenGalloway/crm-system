@@ -147,6 +147,7 @@ function buildColumn(stage, leadsInStage) {
     </div>
     <div class="column-subline">${stage.probability}% probability</div>
     <div class="column-total">${formatCurrency(stageTotal)}</div>
+    ${stage.description ? `<div class="column-description">${escapeHtml(stage.description)}</div>` : ''}
   `;
   col.appendChild(header);
 
@@ -224,7 +225,6 @@ function buildCard(lead) {
         <button class="btn-icon" data-action="move-backward" data-lead-id="${lead.id}" ${canGoBack ? '' : 'disabled'} title="Move back a stage">&lsaquo;</button>
         <button class="btn-icon" data-action="move-forward" data-lead-id="${lead.id}" ${canGoForward ? '' : 'disabled'} title="Move forward a stage">&rsaquo;</button>
       </div>
-      ${isWin ? '' : `<button class="btn-danger-text" data-action="mark-lost" data-lead-id="${lead.id}">Mark lost</button>`}
     `;
   }
 
@@ -294,9 +294,6 @@ function wireStaticEvents() {
     const action = btn.dataset.action;
     if (action === 'move-forward') handleStageAction('forward', leadId);
     if (action === 'move-backward') handleStageAction('backward', leadId);
-    if (action === 'mark-lost') {
-      if (confirm('Mark this lead as Lost?')) handleStageAction('lost', leadId);
-    }
     if (action === 'reopen') handleStageAction('reopen', leadId);
   });
 
@@ -433,6 +430,24 @@ function renderLeadModal() {
         </div>
       </form>
     </div>
+
+    ${(config.salesArtifacts || []).length ? `
+    <div class="modal-section">
+      <div class="modal-section-header"><h3>Sales Artifacts</h3></div>
+      <ul class="detail-list">
+        ${config.salesArtifacts.map((a) => {
+          const completed = (lead.completedArtifactIds || []).includes(a.id);
+          return `
+          <li class="detail-item ${completed ? 'completed' : ''}">
+            <label style="display:flex;gap:6px;align-items:flex-start;font-weight:400;">
+              <input type="checkbox" data-toggle-artifact="${a.id}" ${completed ? 'checked' : ''} style="width:auto;margin-top:2px;" />
+              <span class="detail-item-title">${escapeHtml(a.name)}</span>
+              <span class="detail-item-meta">(${escapeHtml(stageByKey(a.stage) ? stageByKey(a.stage).label : a.stage)})</span>
+            </label>
+          </li>`;
+        }).join('')}
+      </ul>
+    </div>` : ''}
 
     <div class="modal-section">
       <div class="modal-section-header"><h3>Action items</h3></div>
@@ -577,6 +592,18 @@ function wireLeadModalEvents(lead) {
       }
     });
   }
+
+  body.querySelectorAll('[data-toggle-artifact]').forEach((checkbox) => {
+    checkbox.addEventListener('change', async (e) => {
+      try {
+        await apiPatch(`/leads/${lead.id}/artifacts/${e.target.dataset.toggleArtifact}`, { completed: e.target.checked });
+        await loadLeads();
+        renderLeadModal();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+  });
 
   body.querySelectorAll('[data-toggle-action]').forEach((checkbox) => {
     checkbox.addEventListener('change', async (e) => {

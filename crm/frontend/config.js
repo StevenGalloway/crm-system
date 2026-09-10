@@ -9,10 +9,26 @@ async function init() {
     return;
   }
   populateDayOfMonthSelect();
+  populateArtifactStageSelect();
   renderClientPartners();
   renderContactOwners();
+  renderSalesArtifacts();
   renderSchedule();
   wireEvents();
+}
+
+function sortedStages() {
+  return [...(config.stages || [])].sort((a, b) => a.order - b.order);
+}
+
+function populateArtifactStageSelect() {
+  const select = document.getElementById('artifactStageSelect');
+  select.innerHTML = sortedStages().map((s) => `<option value="${escapeHtml(s.key)}">${escapeHtml(s.label)}</option>`).join('');
+}
+
+function stageLabel(key) {
+  const stage = (config.stages || []).find((s) => s.key === key);
+  return stage ? stage.label : key;
 }
 
 function populateDayOfMonthSelect() {
@@ -87,6 +103,38 @@ function renderContactOwners() {
   });
 }
 
+function renderSalesArtifacts() {
+  const list = document.getElementById('salesArtifactsList');
+  const artifacts = config.salesArtifacts || [];
+  if (!artifacts.length) {
+    list.innerHTML = '<li class="detail-item" style="color:var(--color-text-muted);border-style:dashed;">No sales artifacts configured yet</li>';
+    return;
+  }
+  list.innerHTML = artifacts.map((a) => `
+    <li class="detail-item">
+      <div class="detail-item-top">
+        <span class="detail-item-title">${escapeHtml(a.name)}</span>
+        <button class="btn-danger-text" data-remove-artifact="${a.id}" style="padding:0;">Remove</button>
+      </div>
+      <div class="detail-item-meta">${escapeHtml(stageLabel(a.stage))}</div>
+    </li>
+  `).join('');
+
+  list.querySelectorAll('[data-remove-artifact]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Remove this sales artifact? It will disappear from the checklist on every lead.')) return;
+      const updated = (config.salesArtifacts || []).filter((a) => a.id !== btn.dataset.removeArtifact);
+      try {
+        config = await apiPut('/config', { salesArtifacts: updated });
+        renderSalesArtifacts();
+        showToast('Artifact removed');
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+  });
+}
+
 function renderSchedule() {
   const schedule = config.notificationSchedule || {};
   const frequency = schedule.frequency || 'daily';
@@ -140,6 +188,24 @@ function wireEvents() {
       form.reset();
       renderContactOwners();
       showToast('Owner added');
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  });
+
+  document.getElementById('addArtifactForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const name = form.artifactName.value.trim();
+    if (!name) return;
+    const current = config.salesArtifacts || [];
+    try {
+      config = await apiPut('/config', {
+        salesArtifacts: [...current, { id: crypto.randomUUID(), name, stage: form.artifactStage.value }],
+      });
+      form.reset();
+      renderSalesArtifacts();
+      showToast('Artifact added');
     } catch (err) {
       showToast(err.message, true);
     }

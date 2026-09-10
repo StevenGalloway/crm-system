@@ -3,21 +3,11 @@ const { addBusinessDays } = require('./dateUtils');
 
 const LOOKAHEAD_DAYS = Number(process.env.NOTIFIER_LOOKAHEAD_DAYS) || 5;
 const OTHER_ITEMS_DOC_ID = 'other-items';
-const CONFIG_DOC_ID = 'app-config';
 
 async function fetchOtherItems() {
   try {
     const { resource } = await configContainer.item(OTHER_ITEMS_DOC_ID, OTHER_ITEMS_DOC_ID).read();
     return (resource && resource.items) || [];
-  } catch {
-    return [];
-  }
-}
-
-async function fetchStages() {
-  try {
-    const { resource } = await configContainer.item(CONFIG_DOC_ID, CONFIG_DOC_ID).read();
-    return (resource && resource.stages) || [];
   } catch {
     return [];
   }
@@ -66,17 +56,10 @@ async function runDigest(context) {
     ],
   };
 
-  const activeLeadsQuery = {
-    query: `SELECT c.companyName, c.stage, c.dealValue
-            FROM c WHERE c.archived = false AND c.stage != 'win' AND c.stage != 'lost'`,
-  };
-
-  const [actionResult, eventResult, allOtherItems, stages, activeLeadsResult] = await Promise.all([
+  const [actionResult, eventResult, allOtherItems] = await Promise.all([
     leadsContainer.items.query(actionQuery).fetchAll(),
     leadsContainer.items.query(eventQuery).fetchAll(),
     fetchOtherItems(),
-    fetchStages(),
-    leadsContainer.items.query(activeLeadsQuery).fetchAll(),
   ]);
 
   const actionItems = [...actionResult.resources].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
@@ -96,66 +79,51 @@ async function runDigest(context) {
   const todayActions = actionItems.filter((a) => isToday(a.dueDate));
   const todayOther = otherItems.filter((o) => isToday(o.dueDate));
 
-  const lines = [`*Pipeline digest -- next ${LOOKAHEAD_DAYS} business days*`];
+  // Everything below excludes items already surfaced in "Due today" -- no
+  // duplication between that section and the type-categorized ones.
+  const upcomingEvents = events.filter((e) => !isToday(e.eventDate));
+  const upcomingActions = actionItems.filter((a) => !isToday(a.dueDate));
+  const upcomingOther = otherItems.filter((o) => !isToday(o.dueDate));
 
-  // "Due today" surfaces everything happening today up front, regardless of
-  // type -- items listed here also still appear below in their normal
-  // type-categorized section.
+  const sections = [];
+
   if (todayEvents.length || todayActions.length || todayOther.length) {
-    lines.push('', '*Due today:*');
+    const lines = ['*:dart: Due today:*'];
     todayEvents.forEach((e) => lines.push(`- :calendar: ${e.companyName} -- ${e.title} (${formatEventWhen(e.eventDate)})`));
     todayActions.forEach((a) => lines.push(`- :white_check_mark: ${a.companyName} -- ${a.description}`));
     todayOther.forEach((o) => lines.push(`- :round_pushpin: ${o.description}`));
+    sections.push(lines.join('\n'));
   }
 
-  // Below: categorized by type (Calendar, then Action items, then Other),
-  // each internally ordered by due date. Overdue action/other items are
+  // Categorized by type (Calendar, then Action items, then Other), each
+  // sorted by due date ascending (soonest first). Overdue items are
   // flagged inline rather than split into a separate section -- sorting by
   // due date already puts them first within their category.
-  if (events.length) {
-    lines.push('', '*Calendar events:*');
-    events.forEach((e) => lines.push(`- ${e.companyName} -- ${e.title} (${formatEventWhen(e.eventDate)})`));
+  if (upcomingEvents.length) {
+    const lines = ['*Calendar events:*'];
+    upcomingEvents.forEach((e) => lines.push(`- ${e.companyName} -- ${e.title} (${formatEventWhen(e.eventDate)})`));
+    sections.push(lines.join('\n'));
   }
 
-  if (actionItems.length) {
-    lines.push('', '*Action items:*');
-    actionItems.forEach((a) => {
+  if (upcomingActions.length) {
+    const lines = [`*Upcoming Action Items - Next ${LOOKAHEAD_DAYS} Business Days:*`];
+    upcomingActions.forEach((a) => {
       const overdue = a.dueDate.slice(0, 10) < todayDateStr;
       lines.push(`- ${overdue ? ':red_circle: ' : ''}${a.companyName} -- ${a.description} (due ${a.dueDate.slice(0, 10)})`);
     });
+    sections.push(lines.join('\n'));
   }
 
-  if (otherItems.length) {
-    lines.push('', '*One Time BD Action Items:*');
-    otherItems.forEach((o) => {
+  if (upcomingOther.length) {
+    const lines = ['*One Time BD Action Items:*'];
+    upcomingOther.forEach((o) => {
       const overdue = o.dueDate.slice(0, 10) < todayDateStr;
       lines.push(`- ${overdue ? ':red_circle: ' : ''}${o.description} (due ${o.dueDate.slice(0, 10)})`);
     });
+    sections.push(lines.join('\n'));
   }
 
-  // Full pipeline overview, broken down by stage (excluding Won/Lost --
-  // those are closed out, not "active"), each stage's leads sorted by deal
-  // size so the biggest opportunities in that stage surface first.
-  const activeLeads = activeLeadsResult.resources;
-  if (activeLeads.length) {
-    const stageOrder = [...stages].sort((a, b) => a.order - b.order);
-    const byStage = {};
-    activeLeads.forEach((l) => {
-      (byStage[l.stage] = byStage[l.stage] || []).push(l);
-    });
-
-    lines.push('', '*Active pipeline (by stage):*');
-    stageOrder.forEach((stage) => {
-      const leadsInStage = byStage[stage.key];
-      if (!leadsInStage || !leadsInStage.length) return;
-      lines.push(`_${stage.label}_`);
-      leadsInStage
-        .sort((a, b) => (b.dealValue || 0) - (a.dealValue || 0))
-        .forEach((l) => lines.push(`- ${l.companyName} -- $${(l.dealValue || 0).toLocaleString('en-US')}`));
-    });
-  }
-
-  const message = lines.join('\n');
+  const message = sections.join('\n\n');
   const res = await fetch(webhookUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

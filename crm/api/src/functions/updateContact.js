@@ -2,6 +2,7 @@ const { app } = require('@azure/functions');
 const { configContainer } = require('../cosmosClient');
 
 const DOC_ID = 'contacts';
+const CONTACT_TYPES = ['Contact', 'Partnership', 'Non-Qualified Lead'];
 
 app.http('updateContact', {
   methods: ['PATCH'],
@@ -42,6 +43,12 @@ app.http('updateContact', {
     }
     if (body.nextOutreachAction !== undefined) {
       contact.nextOutreachAction = body.nextOutreachAction;
+    }
+    if (body.contactType !== undefined) {
+      if (!CONTACT_TYPES.includes(body.contactType)) {
+        return { status: 400, jsonBody: { error: `contactType must be one of: ${CONTACT_TYPES.join(', ')}` } };
+      }
+      contact.contactType = body.contactType;
     }
     if (body.contactOwner !== undefined) {
       contact.contactOwner = body.contactOwner;
