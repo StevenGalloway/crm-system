@@ -1,5 +1,30 @@
 const { app } = require('@azure/functions');
-const { configContainer } = require('../cosmosClient');
+const { configContainer, leadsContainer } = require('../cosmosClient');
+
+// When clientPartners shrinks, any lead still assigned to a name that's no
+// longer in the list gets that field cleared -- otherwise the board would
+// keep silently displaying a "removed" partner with no way to tell from
+// the config alone that they're gone.
+async function clearRemovedPartners(oldList, newList, context) {
+  const removed = (oldList || []).filter((name) => !newList.includes(name));
+  if (!removed.length) return;
+
+  const query = {
+    query: 'SELECT * FROM c WHERE ARRAY_CONTAINS(@removed, c.clientPartner)',
+    parameters: [{ name: '@removed', value: removed }],
+  };
+  const { resources: affected } = await leadsContainer.items.query(query).fetchAll();
+  await Promise.all(
+    affected.map((lead) => {
+      lead.clientPartner = '';
+      lead.updatedAt = new Date().toISOString();
+      return leadsContainer.item(lead.id, lead.id).replace(lead);
+    })
+  );
+  if (affected.length) {
+    context.log(`Cleared clientPartner on ${affected.length} lead(s) for removed partner(s): ${removed.join(', ')}`);
+  }
+}
 
 app.http('updateConfig', {
   methods: ['PUT'],
@@ -15,6 +40,11 @@ app.http('updateConfig', {
 
     try {
       const { resource: existing } = await configContainer.item('app-config', 'app-config').read();
+
+      if (Array.isArray(body.clientPartners)) {
+        await clearRemovedPartners(existing.clientPartners, body.clientPartners, context);
+      }
+
       const updated = {
         ...existing,
         ...body,

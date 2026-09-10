@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Fenway Group | Other Items</title>
+<title>Fenway Group | One Time BD Action Items</title>
 <link rel="icon" type="image/png" href="assets/fenway-logo-icon.png" />
 <link rel="stylesheet" href="styles.css" />
 </head>
@@ -14,16 +14,23 @@
   <nav class="app-nav">
     <a href="index.html">Board</a>
     <a href="calendar.html">Calendar</a>
-    <a href="otheritems.html" class="active">Other Items</a>
+    <a href="otheritems.html" class="active">One Time BD Action Items</a>
+    <a href="recurringtasks.html">Recurring BD Tasks</a>
+    <a href="contacts.html">Contacts</a>
+    <a href="config.html">Configuration</a>
   </nav>
   <div class="header-actions">
+    <label class="archive-toggle">
+      <input type="checkbox" id="showCompletedToggle" />
+      Show completed
+    </label>
     <button id="newItemBtn" class="btn btn-primary">+ New item</button>
   </div>
 </header>
 
 <main class="other-items-page">
-  <h1>Other Items</h1>
-  <p class="calendar-subhead">BD action items that aren't tied to a specific lead.</p>
+  <h1>One Time BD Action Items</h1>
+  <p class="calendar-subhead">BD action items that aren't tied to a specific lead. Completed items roll off this list 10 days after their due date.</p>
   <ul class="detail-list" id="otherItemsList">
     <!-- rendered by otheritems.js -->
   </ul>
@@ -52,6 +59,27 @@
         <button type="submit" class="btn btn-primary">Add item</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Delete item confirmation modal -->
+<div id="deleteItemModal" class="modal-overlay hidden">
+  <div class="modal modal-small">
+    <div class="modal-header">
+      <h2>Delete item</h2>
+      <button class="modal-close" data-close="deleteItemModal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p>This permanently deletes <strong id="diItemDescription"></strong>. <strong>This cannot be undone.</strong></p>
+      <div class="field">
+        <label for="diConfirmInput">Type the description exactly to confirm</label>
+        <input id="diConfirmInput" autocomplete="off" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" data-close="deleteItemModal">Cancel</button>
+      <button type="button" id="diConfirmBtn" class="btn btn-danger" disabled>Delete permanently</button>
+    </div>
   </div>
 </div>
 

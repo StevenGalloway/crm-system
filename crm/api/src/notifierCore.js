@@ -3,11 +3,21 @@ const { addBusinessDays } = require('./dateUtils');
 
 const LOOKAHEAD_DAYS = Number(process.env.NOTIFIER_LOOKAHEAD_DAYS) || 5;
 const OTHER_ITEMS_DOC_ID = 'other-items';
+const CONFIG_DOC_ID = 'app-config';
 
 async function fetchOtherItems() {
   try {
     const { resource } = await configContainer.item(OTHER_ITEMS_DOC_ID, OTHER_ITEMS_DOC_ID).read();
     return (resource && resource.items) || [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchStages() {
+  try {
+    const { resource } = await configContainer.item(CONFIG_DOC_ID, CONFIG_DOC_ID).read();
+    return (resource && resource.stages) || [];
   } catch {
     return [];
   }
@@ -56,10 +66,17 @@ async function runDigest(context) {
     ],
   };
 
-  const [actionResult, eventResult, allOtherItems] = await Promise.all([
+  const activeLeadsQuery = {
+    query: `SELECT c.companyName, c.stage, c.dealValue
+            FROM c WHERE c.archived = false AND c.stage != 'win' AND c.stage != 'lost'`,
+  };
+
+  const [actionResult, eventResult, allOtherItems, stages, activeLeadsResult] = await Promise.all([
     leadsContainer.items.query(actionQuery).fetchAll(),
     leadsContainer.items.query(eventQuery).fetchAll(),
     fetchOtherItems(),
+    fetchStages(),
+    leadsContainer.items.query(activeLeadsQuery).fetchAll(),
   ]);
 
   const actionItems = [...actionResult.resources].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
@@ -109,10 +126,32 @@ async function runDigest(context) {
   }
 
   if (otherItems.length) {
-    lines.push('', '*Other items:*');
+    lines.push('', '*One Time BD Action Items:*');
     otherItems.forEach((o) => {
       const overdue = o.dueDate.slice(0, 10) < todayDateStr;
       lines.push(`- ${overdue ? ':red_circle: ' : ''}${o.description} (due ${o.dueDate.slice(0, 10)})`);
+    });
+  }
+
+  // Full pipeline overview, broken down by stage (excluding Won/Lost --
+  // those are closed out, not "active"), each stage's leads sorted by deal
+  // size so the biggest opportunities in that stage surface first.
+  const activeLeads = activeLeadsResult.resources;
+  if (activeLeads.length) {
+    const stageOrder = [...stages].sort((a, b) => a.order - b.order);
+    const byStage = {};
+    activeLeads.forEach((l) => {
+      (byStage[l.stage] = byStage[l.stage] || []).push(l);
+    });
+
+    lines.push('', '*Active pipeline (by stage):*');
+    stageOrder.forEach((stage) => {
+      const leadsInStage = byStage[stage.key];
+      if (!leadsInStage || !leadsInStage.length) return;
+      lines.push(`_${stage.label}_`);
+      leadsInStage
+        .sort((a, b) => (b.dealValue || 0) - (a.dealValue || 0))
+        .forEach((l) => lines.push(`- ${l.companyName} -- $${(l.dealValue || 0).toLocaleString('en-US')}`));
     });
   }
 

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fenway Group | Configuration</title>
+<link rel="icon" type="image/png" href="assets/fenway-logo-icon.png" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <img src="assets/fenway-logo-full.png" data-logo="full" alt="Fenway Group" class="app-logo" />
+  <nav class="app-nav">
+    <a href="index.html">Board</a>
+    <a href="calendar.html">Calendar</a>
+    <a href="otheritems.html">One Time BD Action Items</a>
+    <a href="recurringtasks.html">Recurring BD Tasks</a>
+    <a href="contacts.html">Contacts</a>
+    <a href="config.html" class="active">Configuration</a>
+  </nav>
+</header>
+
+<main class="calendar-page">
+  <h1>Configuration</h1>
+  <p class="calendar-subhead">Application-wide settings. Changes here take effect immediately, no redeploy needed.</p>
+
+  <div class="modal-section">
+    <div class="modal-section-header"><h3>Client Partners</h3></div>
+    <p class="detail-item-meta" style="margin-bottom:8px;">Shown as the "Client Partner" dropdown on every lead. Removing a name here clears it from any lead currently assigned to that partner.</p>
+    <ul class="detail-list" id="clientPartnersList"></ul>
+    <form id="addPartnerForm" class="inline-add-form">
+      <input class="grow" name="partnerName" placeholder="Partner name" required />
+      <button type="submit" class="btn btn-secondary">Add</button>
+    </form>
+  </div>
+
+  <div class="modal-section">
+    <div class="modal-section-header"><h3>Contact Owners</h3></div>
+    <p class="detail-item-meta" style="margin-bottom:8px;">Shown as the "Contact Owner" dropdown on the Contacts tab. The Slack ID is used to DM this person their 48-hour outreach reminders -- find it via a person's Slack profile &rarr; "Copy member ID".</p>
+    <ul class="detail-list" id="contactOwnersList"></ul>
+    <form id="addOwnerForm" class="inline-add-form">
+      <input class="grow" name="ownerName" placeholder="Owner name" required />
+      <input name="ownerSlackId" placeholder="Slack member ID (e.g. U0123ABC)" style="width:220px;" />
+      <button type="submit" class="btn btn-secondary">Add</button>
+    </form>
+  </div>
+
+  <div class="modal-section">
+    <div class="modal-section-header"><h3>Notification schedule</h3></div>
+    <p class="detail-item-meta" style="margin-bottom:8px;">Controls when the pipeline digest posts to Slack. Time is Central, snapped to the nearest 15 minutes.</p>
+    <form id="scheduleForm" class="field-row" style="align-items:flex-end;flex-wrap:wrap;">
+      <div class="field" style="flex:none;width:140px;">
+        <label for="schFrequency">Frequency</label>
+        <select id="schFrequency" name="frequency">
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+      <div class="field" style="flex:none;width:130px;">
+        <label for="schTime">Time (Central)</label>
+        <input id="schTime" name="time" type="time" step="900" required />
+      </div>
+      <div class="field" id="schDayOfWeekField" style="flex:none;width:150px;">
+        <label for="schDayOfWeek">Day of week</label>
+        <select id="schDayOfWeek" name="dayOfWeek">
+          <option value="1">Monday</option>
+          <option value="2">Tuesday</option>
+          <option value="3">Wednesday</option>
+          <option value="4">Thursday</option>
+          <option value="5">Friday</option>
+          <option value="6">Saturday</option>
+          <option value="0">Sunday</option>
+        </select>
+      </div>
+      <div class="field" id="schDayOfMonthField" style="flex:none;width:150px;">
+        <label for="schDayOfMonth">Day of month</label>
+        <select id="schDayOfMonth" name="dayOfMonth"></select>
+      </div>
+      <div class="field" style="flex:none;width:auto;">
+        <button type="submit" class="btn btn-primary">Save schedule</button>
+      </div>
+    </form>
+  </div>
+</main>
+
+<script src="api-client.js"></script>
+<script src="demoData.js"></script>
+<script src="config.js"></script>
+</body>
+</html>

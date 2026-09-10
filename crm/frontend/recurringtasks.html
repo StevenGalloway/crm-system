@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fenway Group | Recurring BD Tasks</title>
+<link rel="icon" type="image/png" href="assets/fenway-logo-icon.png" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <img src="assets/fenway-logo-full.png" data-logo="full" alt="Fenway Group" class="app-logo" />
+  <nav class="app-nav">
+    <a href="index.html">Board</a>
+    <a href="calendar.html">Calendar</a>
+    <a href="otheritems.html">One Time BD Action Items</a>
+    <a href="recurringtasks.html" class="active">Recurring BD Tasks</a>
+    <a href="contacts.html">Contacts</a>
+    <a href="config.html">Configuration</a>
+  </nav>
+  <div class="header-actions">
+    <button id="newTaskBtn" class="btn btn-primary">+ New recurring task</button>
+  </div>
+</header>
+
+<main class="other-items-page">
+  <h1>Recurring BD Tasks</h1>
+  <p class="calendar-subhead">Configured on a cadence -- instances generate automatically and show up on the "One Time BD Action Items" tab when due.</p>
+  <ul class="detail-list" id="recurringTasksList">
+    <!-- rendered by recurringtasks.js -->
+  </ul>
+</main>
+
+<!-- New recurring task modal -->
+<div id="newTaskModal" class="modal-overlay hidden">
+  <div class="modal modal-small">
+    <div class="modal-header">
+      <h2>New recurring task</h2>
+      <button class="modal-close" data-close="newTaskModal">&times;</button>
+    </div>
+    <form id="newTaskForm">
+      <div class="modal-body">
+        <div class="field">
+          <label for="rtDescription">Description *</label>
+          <input id="rtDescription" name="description" required />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="rtCadence">Repeats *</label>
+            <select id="rtCadence" name="cadence" required>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly" selected>Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="annually">Annually</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="rtAnchorDate">Starting *</label>
+            <input id="rtAnchorDate" name="anchorDate" type="date" required />
+          </div>
+        </div>
+        <p class="stage-history">A new "One Time BD Action Item" is generated on this date, then again every period after, based on the cadence above.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close="newTaskModal">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add task</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete recurring task confirmation modal -->
+<div id="deleteTaskModal" class="modal-overlay hidden">
+  <div class="modal modal-small">
+    <div class="modal-header">
+      <h2>Delete recurring task</h2>
+      <button class="modal-close" data-close="deleteTaskModal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p>This permanently deletes <strong id="dtTaskDescription"></strong>. Instances already generated on "One Time BD Action Items" are not affected. <strong>This cannot be undone.</strong></p>
+      <div class="field">
+        <label for="dtConfirmInput">Type the description exactly to confirm</label>
+        <input id="dtConfirmInput" autocomplete="off" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" data-close="deleteTaskModal">Cancel</button>
+      <button type="button" id="dtConfirmBtn" class="btn btn-danger" disabled>Delete permanently</button>
+    </div>
+  </div>
+</div>
+
+<script src="api-client.js"></script>
+<script src="demoData.js"></script>
+<script src="recurringtasks.js"></script>
+</body>
+</html>

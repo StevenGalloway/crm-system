@@ -31,7 +31,10 @@ function demoRoute(method, pathAndQuery, body) {
   const query = new URLSearchParams(queryString || '');
   const parts = rawPath.split('/').filter(Boolean);
 
-  if (parts[0] === 'config') return window.DemoApi.getConfig();
+  if (parts[0] === 'config') {
+    if (method === 'GET') return window.DemoApi.getConfig();
+    if (method === 'PUT') return window.DemoApi.updateConfig(body);
+  }
   if (parts[0] === 'calendar') return window.DemoApi.getCalendarFeed(Number(query.get('days')) || 5);
 
   if (parts[0] === 'other-items') {
@@ -40,6 +43,30 @@ function demoRoute(method, pathAndQuery, body) {
       if (method === 'POST') return window.DemoApi.addOtherItem(body);
     }
     if (parts.length === 2 && method === 'PATCH') return window.DemoApi.updateOtherItem(parts[1], body);
+    if (parts.length === 2 && method === 'DELETE') return window.DemoApi.deleteOtherItem(parts[1]);
+  }
+
+  if (parts[0] === 'recurring-tasks') {
+    if (parts.length === 1) {
+      if (method === 'GET') return window.DemoApi.getRecurringTasks();
+      if (method === 'POST') return window.DemoApi.addRecurringTask(body);
+    }
+    if (parts[1] === 'test' && method === 'POST') return window.DemoApi.testRecurringTaskGenerator();
+    if (parts.length === 2 && method === 'PATCH') return window.DemoApi.updateRecurringTask(parts[1], body);
+    if (parts.length === 2 && method === 'DELETE') return window.DemoApi.deleteRecurringTask(parts[1]);
+  }
+
+  if (parts[0] === 'contacts') {
+    if (parts.length === 1) {
+      if (method === 'GET') return window.DemoApi.getContacts();
+      if (method === 'POST') return window.DemoApi.addContact(body);
+    }
+    if (parts.length === 2 && method === 'PATCH') return window.DemoApi.updateContact(parts[1], body);
+    if (parts.length === 2 && method === 'DELETE') return window.DemoApi.deleteContact(parts[1]);
+  }
+
+  if (parts[0] === 'notify' && parts[1] === 'outreach-test' && method === 'POST') {
+    return window.DemoApi.testOutreachNotifier();
   }
 
   if (parts[0] === 'leads') {
@@ -74,6 +101,18 @@ async function apiGet(pathAndQuery) {
   await ensureDemoModeChecked();
   if (useDemoMode) return demoRoute('GET', pathAndQuery);
   const res = await fetch(`${API_BASE}${pathAndQuery}`);
+  if (!res.ok) throw new Error(await safeErrorMessage(res));
+  return res.json();
+}
+
+async function apiPut(path, body) {
+  await ensureDemoModeChecked();
+  if (useDemoMode) return demoRoute('PUT', path, body);
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
   if (!res.ok) throw new Error(await safeErrorMessage(res));
   return res.json();
 }

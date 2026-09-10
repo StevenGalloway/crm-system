@@ -475,6 +475,12 @@ input:focus, textarea:focus, select:focus {
   border: 1px solid var(--brand-slate-blue);
 }
 
+.card-badge.cadence {
+  background: var(--color-lost-bg);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
 .card-badges {
   display: flex;
   flex-wrap: wrap;
@@ -664,6 +670,10 @@ input:focus, textarea:focus, select:focus {
 .detail-item.completed .detail-item-title {
   text-decoration: line-through;
   color: var(--color-text-muted);
+}
+
+.detail-item.paused {
+  opacity: 0.6;
 }
 
 .inline-add-form {

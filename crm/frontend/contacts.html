@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fenway Group | Contacts</title>
+<link rel="icon" type="image/png" href="assets/fenway-logo-icon.png" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <img src="assets/fenway-logo-full.png" data-logo="full" alt="Fenway Group" class="app-logo" />
+  <nav class="app-nav">
+    <a href="index.html">Board</a>
+    <a href="calendar.html">Calendar</a>
+    <a href="otheritems.html">One Time BD Action Items</a>
+    <a href="recurringtasks.html">Recurring BD Tasks</a>
+    <a href="contacts.html" class="active">Contacts</a>
+    <a href="config.html">Configuration</a>
+  </nav>
+  <div class="header-actions">
+    <button id="newContactBtn" class="btn btn-primary">+ New contact</button>
+  </div>
+</header>
+
+<main class="other-items-page">
+  <h1>Contacts</h1>
+  <p class="calendar-subhead">Who you're tracking, and when they're next due for outreach.</p>
+  <ul class="detail-list" id="contactsList">
+    <!-- rendered by contacts.js -->
+  </ul>
+</main>
+
+<!-- New contact modal -->
+<div id="newContactModal" class="modal-overlay hidden">
+  <div class="modal modal-small">
+    <div class="modal-header">
+      <h2>New contact</h2>
+      <button class="modal-close" data-close="newContactModal">&times;</button>
+    </div>
+    <form id="newContactForm">
+      <div class="modal-body">
+        <div class="field">
+          <label for="ctName">Contact name *</label>
+          <input id="ctName" name="name" required />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="ctNextOutreach">Next outreach date *</label>
+            <input id="ctNextOutreach" name="nextOutreachDate" type="date" required />
+          </div>
+          <div class="field">
+            <label for="ctOwner">Contact owner</label>
+            <select id="ctOwner" name="contactOwner">
+              <!-- populated by contacts.js from config.contactOwners -->
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="ctNextOutreachAction">Next outreach action</label>
+          <input id="ctNextOutreachAction" name="nextOutreachAction" placeholder="Briefly, what's the next outreach about?" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close="newContactModal">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add contact</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="api-client.js"></script>
+<script src="demoData.js"></script>
+<script src="contacts.js"></script>
+</body>
+</html>

@@ -37,6 +37,12 @@
       },
     },
     notifications: { lookaheadBusinessDays: 5 },
+    clientPartners: ['Sam Whitfield', 'Renee Ashby', 'Jordan Blake'],
+    contactOwners: [
+      { name: 'Sam Whitfield', slackUserId: 'U0DEMO001' },
+      { name: 'Renee Ashby', slackUserId: 'U0DEMO002' },
+    ],
+    notificationSchedule: { frequency: 'daily', time: '08:00', dayOfWeek: 1, dayOfMonth: 1 },
   };
 
   function daysFromNow(n) {
@@ -112,12 +118,57 @@
   let otherItems = [
     { id: uid(), description: 'Renew G2 review campaign', dueDate: daysFromNow(1).slice(0, 10), completed: false, createdAt: new Date().toISOString(), completedAt: null },
     { id: uid(), description: 'Update BD pipeline deck for leadership review', dueDate: daysFromNow(-2).slice(0, 10), completed: false, createdAt: new Date().toISOString(), completedAt: null },
+    { id: uid(), description: 'Old finished task (should roll off)', dueDate: daysFromNow(-15).slice(0, 10), completed: true, createdAt: new Date().toISOString(), completedAt: daysFromNow(-14) },
   ];
 
   function findOtherItem(itemId) {
     const item = otherItems.find((i) => i.id === itemId);
     if (!item) throw new Error('Item not found');
     return item;
+  }
+
+  let recurringTasks = [
+    { id: uid(), description: 'Weekly pipeline review', cadence: 'weekly', anchorDate: daysFromNow(-14).slice(0, 10), active: true, lastGeneratedDate: null, createdAt: new Date().toISOString() },
+    { id: uid(), description: 'Monthly BD newsletter draft', cadence: 'monthly', anchorDate: daysFromNow(1).slice(0, 10), active: true, lastGeneratedDate: null, createdAt: new Date().toISOString() },
+  ];
+
+  function findRecurringTask(taskId) {
+    const task = recurringTasks.find((t) => t.id === taskId);
+    if (!task) throw new Error('Recurring task not found');
+    return task;
+  }
+
+  function addPeriod(dateStr, cadence) {
+    const d = new Date(dateStr + 'T00:00:00');
+    if (cadence === 'daily') d.setDate(d.getDate() + 1);
+    else if (cadence === 'weekly') d.setDate(d.getDate() + 7);
+    else if (cadence === 'monthly') d.setMonth(d.getMonth() + 1);
+    else if (cadence === 'quarterly') d.setMonth(d.getMonth() + 3);
+    else if (cadence === 'annually') d.setFullYear(d.getFullYear() + 1);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function nextDueOccurrence(template, todayStr) {
+    let occStr = template.lastGeneratedDate ? addPeriod(template.lastGeneratedDate, template.cadence) : template.anchorDate;
+    let due = null;
+    let guard = 0;
+    while (occStr <= todayStr && guard < 1000) {
+      due = occStr;
+      occStr = addPeriod(occStr, template.cadence);
+      guard++;
+    }
+    return due;
+  }
+
+  let contacts = [
+    { id: uid(), name: 'Jane Doe', nextOutreachDate: daysFromNow(1).slice(0, 10), nextOutreachAction: 'Follow up on pricing questions from last call', contactOwner: 'Sam Whitfield', outreachNotifiedFor: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: uid(), name: 'Mike Chen', nextOutreachDate: daysFromNow(-1).slice(0, 10), nextOutreachAction: 'Send updated proposal', contactOwner: 'Renee Ashby', outreachNotifiedFor: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  ];
+
+  function findContact(contactId) {
+    const contact = contacts.find((c) => c.id === contactId);
+    if (!contact) throw new Error('Contact not found');
+    return contact;
   }
 
   function findLead(id) {
@@ -144,6 +195,17 @@
 
   window.DemoApi = {
     getConfig: () => config,
+
+    updateConfig: (body) => {
+      if (Array.isArray(body.clientPartners)) {
+        const removed = (config.clientPartners || []).filter((n) => !body.clientPartners.includes(n));
+        leads.forEach((l) => {
+          if (removed.includes(l.clientPartner)) l.clientPartner = '';
+        });
+      }
+      Object.assign(config, body);
+      return config;
+    },
 
     getLeads: (archived) => leads.filter((l) => l.archived === archived),
 
@@ -309,6 +371,99 @@
         item.completedAt = item.completed ? new Date().toISOString() : null;
       }
       return otherItems;
+    },
+
+    deleteOtherItem: (itemId) => {
+      findOtherItem(itemId);
+      otherItems = otherItems.filter((i) => i.id !== itemId);
+      return otherItems;
+    },
+
+    getRecurringTasks: () => recurringTasks,
+
+    addRecurringTask: (body) => {
+      if (!body.description || !body.cadence || !body.anchorDate) throw new Error('description, cadence, and anchorDate are required');
+      recurringTasks.push({
+        id: uid(), description: body.description, cadence: body.cadence, anchorDate: body.anchorDate,
+        active: true, lastGeneratedDate: null, createdAt: new Date().toISOString(),
+      });
+      return recurringTasks;
+    },
+
+    updateRecurringTask: (taskId, body) => {
+      const task = findRecurringTask(taskId);
+      if (body.description !== undefined) task.description = body.description;
+      if (body.cadence !== undefined) task.cadence = body.cadence;
+      if (body.anchorDate !== undefined) task.anchorDate = body.anchorDate;
+      if (body.active !== undefined) task.active = body.active !== false;
+      return recurringTasks;
+    },
+
+    deleteRecurringTask: (taskId) => {
+      findRecurringTask(taskId);
+      recurringTasks = recurringTasks.filter((t) => t.id !== taskId);
+      return recurringTasks;
+    },
+
+    testRecurringTaskGenerator: () => {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const generated = [];
+      recurringTasks.filter((t) => t.active).forEach((template) => {
+        const due = nextDueOccurrence(template, todayStr);
+        if (!due) return;
+        template.lastGeneratedDate = due;
+        const item = {
+          id: uid(), description: template.description, dueDate: due,
+          completed: false, createdAt: new Date().toISOString(), completedAt: null,
+          recurringTaskId: template.id,
+        };
+        otherItems.push(item);
+        generated.push(item);
+      });
+      return { generated };
+    },
+
+    getContacts: () => contacts,
+
+    addContact: (body) => {
+      if (!body.name || !body.nextOutreachDate) throw new Error('name and nextOutreachDate are required');
+      contacts.push({
+        id: uid(), name: body.name, nextOutreachDate: body.nextOutreachDate, nextOutreachAction: body.nextOutreachAction || '',
+        contactOwner: body.contactOwner || '',
+        outreachNotifiedFor: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      });
+      return contacts;
+    },
+
+    updateContact: (contactId, body) => {
+      const contact = findContact(contactId);
+      if (body.name !== undefined) contact.name = body.name;
+      if (body.nextOutreachDate !== undefined) contact.nextOutreachDate = body.nextOutreachDate;
+      if (body.nextOutreachAction !== undefined) contact.nextOutreachAction = body.nextOutreachAction;
+      if (body.contactOwner !== undefined) contact.contactOwner = body.contactOwner;
+      contact.updatedAt = new Date().toISOString();
+      return contacts;
+    },
+
+    deleteContact: (contactId) => {
+      findContact(contactId);
+      contacts = contacts.filter((c) => c.id !== contactId);
+      return contacts;
+    },
+
+    testOutreachNotifier: () => {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() + 2);
+      const cutoffStr = cutoff.toISOString().slice(0, 10);
+      const due = contacts.filter((c) => c.nextOutreachDate <= cutoffStr && c.outreachNotifiedFor !== c.nextOutreachDate);
+      return {
+        sent: [],
+        skipped: [],
+        reason: due.length
+          ? `Demo mode -- ${due.length} contact(s) would be due, but Slack DMs aren't simulated locally. Deploy with SLACK_BOT_TOKEN set to test for real.`
+          : 'Nothing due in the outreach window',
+      };
     },
 
     getCalendarFeed: (days) => {

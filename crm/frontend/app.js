@@ -14,7 +14,21 @@ async function init() {
     showToast('Could not load configuration: ' + err.message, true);
     return;
   }
+  populatePartnerSelect(document.getElementById('nlClientPartner'));
   await loadLeads();
+}
+
+// Builds <option>s from config.clientPartners; if currentValue is set and
+// isn't in that list (a legacy free-text value from before the dropdown
+// existed, or a partner since removed from config), it's added as an extra
+// selected option so it's never silently dropped or swapped out from under
+// the user -- they see exactly what's stored and can consciously change it.
+function populatePartnerSelect(select, currentValue) {
+  const partners = (config.clientPartners || []).slice();
+  if (currentValue && !partners.includes(currentValue)) partners.unshift(currentValue);
+  select.innerHTML =
+    '<option value="">Unassigned</option>' +
+    partners.map((name) => `<option value="${escapeHtml(name)}" ${name === currentValue ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('');
 }
 
 async function loadLeads() {
@@ -334,7 +348,7 @@ function renderLeadModal() {
         </div>
         <div class="field-row">
           <div class="field"><label>Contact phone</label><input name="contactPhone" value="${escapeHtml(lead.contactPhone)}" /></div>
-          <div class="field"><label>Client Partner</label><input name="clientPartner" value="${escapeHtml(lead.clientPartner)}" /></div>
+          <div class="field"><label>Client Partner</label><select name="clientPartner" id="editClientPartner"></select></div>
         </div>
         <div class="field-row">
           <div class="field" style="display:flex;align-items:flex-end;"><button type="submit" class="btn btn-secondary">Save</button></div>
@@ -462,6 +476,8 @@ function renderLeadModal() {
 function wireLeadModalEvents(lead) {
   const body = document.getElementById('leadModalBody');
   const footer = document.getElementById('leadModalFooter');
+
+  populatePartnerSelect(document.getElementById('editClientPartner'), lead.clientPartner);
 
   const editToggle = body.querySelector('[data-toggle="editLeadForm"]');
   if (editToggle) {

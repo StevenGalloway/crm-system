@@ -1,19 +1,31 @@
 const { app } = require('@azure/functions');
 const { runDigest } = require('../notifierCore');
+const { configContainer } = require('../cosmosClient');
+const { DEFAULT_SCHEDULE, shouldSendNow, periodKey } = require('../scheduleCore');
 
-// Static Web Apps' managed Functions don't allow WEBSITE_TIME_ZONE as an
-// app setting, and always run timers in UTC -- so instead of relying on a
-// single fixed UTC hour (which would drift an hour off 8am Central across
-// the DST change), this fires at both UTC hours that 8am Central can land
-// on (13:00 during CDT, 14:00 during CST) and only actually runs the
-// digest on whichever of those firings is currently 8am in Chicago.
+const CONFIG_DOC_ID = 'app-config';
+
+// Ticks every 15 minutes so the configured schedule (frequency + time, set
+// on the Configuration page) can be checked at that resolution, rather than
+// being locked to a single fixed hour in code.
 app.timer('dailyNotifier', {
-  schedule: '0 0 13,14 * * 1-5',
+  schedule: '0 */15 * * * *',
   handler: async (myTimer, context) => {
-    const centralHour = Number(
-      new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', hour: 'numeric', hour12: false }).format(new Date())
-    );
-    if (centralHour !== 8) return; // the other of the two UTC firings for the current DST offset
+    let configDoc;
+    try {
+      const { resource } = await configContainer.item(CONFIG_DOC_ID, CONFIG_DOC_ID).read();
+      configDoc = resource;
+    } catch (err) {
+      context.error('dailyNotifier: failed to load config', err);
+      return;
+    }
+
+    const schedule = { ...DEFAULT_SCHEDULE, ...(configDoc.notificationSchedule || {}) };
+    const now = new Date();
+    if (!shouldSendNow(schedule, now)) return;
+
+    const key = periodKey(schedule, now);
+    if (schedule.lastSentPeriodKey === key) return;
 
     try {
       const result = await runDigest(context);
@@ -22,6 +34,14 @@ app.timer('dailyNotifier', {
       }
     } catch (err) {
       context.error('dailyNotifier failed', err);
+      return; // don't record the period as handled if the run itself failed
+    }
+
+    configDoc.notificationSchedule = { ...schedule, lastSentPeriodKey: key };
+    try {
+      await configContainer.items.upsert(configDoc);
+    } catch (err) {
+      context.error('dailyNotifier: failed to persist lastSentPeriodKey', err);
     }
   },
 });

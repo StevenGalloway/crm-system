@@ -21,9 +21,12 @@ crm-poc/
 ├── frontend/                    Static site (no build step -- plain HTML/CSS/JS)
 │   ├── index.html               The board
 │   ├── calendar.html            Agenda view of upcoming/overdue items
-│   ├── otheritems.html          BD action items not tied to a lead
+│   ├── otheritems.html          "One Time BD Action Items" -- BD tasks not tied to a lead
+│   ├── recurringtasks.html      Recurring task templates (daily/weekly/monthly/quarterly/annually)
+│   ├── contacts.html            Contacts + next outreach date
+│   ├── config.html              Client Partners, Contact Owners, notification schedule
 │   ├── styles.css               All styling; brand colors as CSS variables
-│   ├── app.js / calendar.js / otheritems.js   Page logic
+│   ├── app.js / calendar.js / otheritems.js / recurringtasks.js / contacts.js / config.js   Page logic
 │   ├── api-client.js            Fetch helpers + demo-mode fallback
 │   ├── demoData.js              In-memory sample data (used only if /api is unreachable)
 │   └── assets/                  Logos (see "Logos" section below)
@@ -130,6 +133,7 @@ in the Azure portal, or via CLI):
 ```bash
 az staticwebapp appsettings set \
   --name fenway-crm-poc \
+  --resource-group fenway-crm-poc-rg \
   --setting-names \
     COSMOS_ENDPOINT="<your-cosmos-endpoint>" \
     COSMOS_KEY="<your-cosmos-key>" \
@@ -145,11 +149,36 @@ all -- without it the Functions host finds zero functions and every
 `/api/*` route 404s.
 
 Do **not** add `WEBSITE_TIME_ZONE` -- Static Web Apps' managed Functions
-reject it outright (`InvalidAppSettings`). The daily Slack post's timer
-schedule in `dailyNotifier.js` runs in UTC and already compensates for this
-in code: it fires at both UTC hours 8am Central can land on across the DST
-change, and checks the actual Chicago-local hour before sending, so it
-posts exactly once a day regardless of season.
+reject it outright (`InvalidAppSettings`). The pipeline digest's timer
+ticks every 15 minutes and computes Central time fresh via `Intl` on every
+run (see `api/src/scheduleCore.js`), checking it against whatever schedule
+is set on the **Configuration** page (frequency, time of day, and day of
+week/month) -- so DST and the schedule itself are both handled in code, no
+app setting needed. Defaults to daily at 8am Central until you change it.
+
+### Optional: SLACK_BOT_TOKEN (for per-contact-owner outreach DMs)
+
+Only needed if you're using the Contacts tab's 48-hour outreach reminders
+(these are real private Slack DMs, not a channel post, so they need a
+different kind of Slack credential than `SLACK_WEBHOOK_URL`):
+
+1. In your Slack app (the one you created in step 3) go to **OAuth &
+   Permissions** → **Bot Token Scopes** → add `chat:write` and `im:write`.
+2. **Install to Workspace** (or reinstall, if it was already installed
+   before you added those scopes).
+3. Copy the **Bot User OAuth Token** (starts with `xoxb-`).
+
+```bash
+az staticwebapp appsettings set \
+  --name fenway-crm-poc \
+  --resource-group fenway-crm-poc-rg \
+  --setting-names SLACK_BOT_TOKEN="<your-bot-token>"
+```
+
+Then add each contact owner's Slack member ID on the Configuration page
+(find it via their Slack profile → **More** → **Copy member ID**). Without
+this token set, `outreachNotifier` silently does nothing (same "not
+configured, skip" pattern as `SLACK_WEBHOOK_URL`) -- it doesn't error.
 
 ### Where to find these values again
 
@@ -178,19 +207,16 @@ outside of Cosmos/Slack/Azure themselves.
   Cosmos key included:
   `az staticwebapp appsettings list --name fenway-crm-poc --resource-group fenway-crm-poc-rg`
 
-### Test the Slack digest on demand
+### Test on demand, without waiting for a schedule
 
-Don't wait for the 8am schedule to check that Cosmos + the webhook are
-wired up correctly:
+Three background jobs run on their own timers -- each has a matching
+on-demand HTTP endpoint that runs the exact same logic immediately, so you
+can verify each is wired up correctly without waiting:
 
+**Pipeline digest** (normally runs per the Configuration page's schedule):
 ```bash
 curl -X POST https://<your-swa-hostname>/api/notify/test
 ```
-
-This runs the exact same query-and-post logic as the scheduled
-`dailyNotifier` job -- a successful call here means the real 8am post will
-work too. It responds with one of:
-
 - `{"posted": true, "message": "..."}` -- posted to Slack; `message` is the
   exact text that went out, handy for checking formatting without leaving
   the terminal.
@@ -200,6 +226,23 @@ work too. It responds with one of:
   pending. Add an action item due today (or in the past) to any lead and
   try again -- or if the reason says `SLACK_WEBHOOK_URL is not set`, that
   app setting is missing (see step 5 above).
+
+**Recurring task generator** (normally runs daily at 11:00 UTC):
+```bash
+curl -X POST https://<your-swa-hostname>/api/recurring-tasks/test
+```
+Returns `{"generated": [...]}` -- any recurring task whose anchor date has
+arrived gets a new instance pushed onto "One Time BD Action Items"
+immediately, instead of waiting for tomorrow's run.
+
+**Outreach DMs** (normally runs daily at 12:30 UTC; needs `SLACK_BOT_TOKEN`
+set, see above):
+```bash
+curl -X POST https://<your-swa-hostname>/api/notify/outreach-test
+```
+Returns `{"sent": [...], "skipped": [...]}` -- `sent` lists each contact
+owner DMed and how many contacts were in it; `skipped` lists owners who had
+contacts due but no Slack ID configured (or whose DM failed), with why.
 
 ---
 
@@ -228,8 +271,11 @@ under those same names works too.
 5. Add an action item with yesterday's date -- confirm it shows an "Overdue" badge on the card and in the Calendar tab.
 6. Add a calendar event and a communication; confirm the communication shows as "Last communication" on the card.
 7. Archive a lead, then check "Show archived" to confirm it's hidden/shown correctly.
-8. Run the Slack digest on demand (see "Test the Slack digest on demand" under step 5) -- confirm it posts and the message reads correctly.
-9. Add an item on the "Other Items" tab with yesterday's date, then re-run the digest -- confirm it shows up under "Due today" and "Other items" in the Slack message, marked overdue.
+8. Run the Slack digest on demand (see "Test on demand, without waiting for a schedule" under step 5) -- confirm it posts and the message reads correctly, including the "Active pipeline (by stage)" section at the bottom.
+9. Add an item on "One Time BD Action Items" with yesterday's date, then re-run the digest -- confirm it shows up under "Due today" and "One Time BD Action Items" in the Slack message, marked overdue.
+10. On the Configuration page, add a Client Partner, then assign it to a lead via Edit details -- confirm it shows on the card. Remove that partner from the config list and confirm the lead's Client Partner clears.
+11. Add a recurring task on "Recurring BD Tasks" with today as the start date, run its test endpoint -- confirm a new item appears on "One Time BD Action Items" with today's date.
+12. Add a Contact Owner + their Slack ID on the Configuration page, add a contact due tomorrow on the Contacts tab with that owner, then run the outreach test endpoint -- confirm they get a Slack DM (needs `SLACK_BOT_TOKEN` set).
 
 ---
 
@@ -245,14 +291,23 @@ tested at this scale, so the model favors simplicity over cleverness:
   means moving it between partitions (partition keys are immutable in
   Cosmos DB, so this was worth getting right from the start).
 - **One document (`app-config`)** in the `config` container holds the stage
-  definitions and brand colors as data. The frontend fetches it once per
+  definitions, brand colors, `clientPartners`, `contactOwners` (name + Slack
+  ID), and `notificationSchedule` as data. The frontend fetches it once per
   page load and applies colors as CSS variables -- so "configurable brand
-  colors" means editing that document, not editing CSS or redeploying.
-- **One document (`other-items`)**, also in the `config` container, holds
-  the "Other Items" list (BD action items not tied to a lead) as a single
-  array -- same read-modify-write pattern as `app-config`, no new container
-  needed. Fine at this volume; if that list ever grows into the hundreds,
-  it'd be worth splitting into one document per item like leads are.
+  colors" (and now Client Partners, Contact Owners, and the digest schedule)
+  means editing that document via the Configuration page, not editing code
+  or redeploying.
+- **Three more single-document lists, same pattern, all in the `config`
+  container:** `other-items` (One Time BD Action Items), `recurring-tasks`
+  (the templates that generate those), and `contacts`. Same read-modify-
+  write approach as `app-config`, no new containers needed. Fine at this
+  volume; if any of these ever grow into the hundreds, it'd be worth
+  splitting into one document per item like leads are.
+- **`SLACK_BOT_TOKEN` is an app setting, never config data.** Contact
+  owners' Slack *IDs* live in `app-config` (not secret, just an identifier),
+  but the bot token that actually authenticates DM sends is an Application
+  Setting only -- `GET /api/config` returns the whole `app-config` document
+  to the browser, so anything secret can never live in it.
 - **Communications are a full history, not a single field.** The UI surfaces
   the most recent entry as "Last communication" and lets you expand the
   rest, so nothing is overwritten when a new one is logged.
@@ -271,11 +326,29 @@ tested at this scale, so the model favors simplicity over cleverness:
   redeploy needed either way.
 - **Change the Slack digest window:** update `NOTIFIER_LOOKAHEAD_DAYS` in
   the Function App's settings (also read by the Calendar page's subhead).
-- **Hard-delete a lead:** exposed via the "Delete lead" button in the lead
-  detail modal, gated behind typing the lead's exact company name to
-  confirm -- with no login system, a one-click permanent delete would be an
-  easy accident. Archiving (reversible) is still there too, for anything
-  short of "get rid of this entirely."
+- **Hard-delete a lead, a One Time BD Action Item, or a Recurring BD
+  Task:** each has a delete button gated behind typing the item's exact
+  text (company name, or description) to confirm -- with no login system,
+  a one-click permanent delete would be an easy accident. Archiving
+  (leads) is still there too, for anything short of "get rid of this
+  entirely." Contacts also have a delete button, but with a plain
+  confirm() rather than the type-to-confirm ceremony -- lower stakes than
+  the others.
+- **One Time BD Action Items and Recurring BD Tasks are both editable**
+  (description/due date, or description/cadence/start date) via an inline
+  Edit button on each row, and both show "Past due" / "Due in 48h" tags
+  matching the lead-card badge style -- for a recurring task, the tag
+  reflects its *next* computed occurrence, not any single generated
+  instance. Completed One Time items roll off the default list 10 days
+  after their due date (still there, just hidden -- toggle "Show
+  completed" to see them); incomplete ones never auto-hide, no matter how
+  overdue.
+- **Add/rename stages** or **change brand colors, Client Partners, Contact
+  Owners, or the notification schedule:** all editable from the
+  Configuration page now -- no more raw API calls or Data Explorer needed
+  for day-to-day changes. (Stage *reordering* specifically still needs a
+  direct edit to the `app-config` document, since there's no drag-to-reorder
+  UI for that yet.)
 
 ## Known POC limitations worth knowing about
 
@@ -285,9 +358,16 @@ tested at this scale, so the model favors simplicity over cleverness:
   built-in auth (Easy Auth) is a config-only bolt-on if/when you need it --
   it doesn't require rebuilding anything above.
 - **No optimistic concurrency control.** Two people editing the same lead
-  at the same instant can overwrite each other's change (last write wins).
-  Not a real risk at POC usage levels; worth a look if this gets busier.
+  (or the same shared config/other-items/contacts document) at the same
+  instant can overwrite each other's change (last write wins). Not a real
+  risk at POC usage levels; worth a look if this gets busier.
 - **Business-day calculations don't account for holidays**, only weekends
   (`api/src/dateUtils.js`). Easy to extend with a holiday list if it matters.
-- **No config-editing UI.** Stage/brand changes go through Cosmos DB Data
-  Explorer or a raw API call for now, not a settings screen in the app.
+- **Recurring tasks anchored on the 29th-31st drift in short months** (JS
+  Date rolls e.g. Feb 31 into Mar 2/3) -- fine for most cadences/anchor
+  dates, just avoid anchoring a monthly/quarterly/annual task on those days
+  if exact-day-of-month matters. See `api/src/recurringCore.js`.
+- **Outreach DMs need one-time Slack app setup** (Bot Token Scopes +
+  reinstall) beyond the Incoming Webhook already used for the pipeline
+  digest -- see "Optional: SLACK_BOT_TOKEN" under step 5. Without it,
+  `outreachNotifier` just no-ops rather than failing loudly.

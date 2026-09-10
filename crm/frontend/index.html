@@ -14,7 +14,10 @@
   <nav class="app-nav">
     <a href="index.html" class="active">Board</a>
     <a href="calendar.html">Calendar</a>
-    <a href="otheritems.html">Other Items</a>
+    <a href="otheritems.html">One Time BD Action Items</a>
+    <a href="recurringtasks.html">Recurring BD Tasks</a>
+    <a href="contacts.html">Contacts</a>
+    <a href="config.html">Configuration</a>
   </nav>
   <div class="header-actions">
     <label class="archive-toggle">
@@ -68,7 +71,9 @@
         </div>
         <div class="field">
           <label for="nlClientPartner">Client Partner</label>
-          <input id="nlClientPartner" name="clientPartner" placeholder="Who's assigned to this lead?" />
+          <select id="nlClientPartner" name="clientPartner">
+            <!-- populated by app.js from config.clientPartners -->
+          </select>
         </div>
         <p class="stage-history">New leads always start in the first stage (Qualification).</p>
       </div>
