@@ -6,6 +6,7 @@ const { leadsContainer } = require('../cosmosClient');
 // enforced server-side so "new leads can only be added at Qualification"
 // can't be bypassed by a crafted request.
 const FIRST_STAGE = 'qualification';
+const RFP_STAGE = 'rfp';
 
 app.http('createLead', {
   methods: ['POST'],
@@ -23,6 +24,9 @@ app.http('createLead', {
       return { status: 400, jsonBody: { error: 'companyName is required' } };
     }
 
+    const isRFP = body.isRFP === true;
+    const startingStage = isRFP ? RFP_STAGE : FIRST_STAGE;
+
     const now = new Date().toISOString();
     const lead = {
       id: randomUUID(),
@@ -34,11 +38,12 @@ app.http('createLead', {
       contactPhone: body.contactPhone || '',
       clientPartner: body.clientPartner || '',
       dealValue: Number(body.dealValue) || 0,
-      stage: FIRST_STAGE,
+      isRFP,
+      stage: startingStage,
       archived: false,
       createdAt: now,
       updatedAt: now,
-      stageHistory: [{ stage: FIRST_STAGE, enteredAt: now }],
+      stageHistory: [{ stage: startingStage, enteredAt: now }],
       actionItems: [],
       calendarEvents: [],
       communications: [],

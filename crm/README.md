@@ -266,7 +266,7 @@ under those same names works too.
 
 1. Open your Static Web App's URL (e.g. `https://fenway-crm-poc.azurestaticapps.net`).
 2. The "Demo mode" banner should be gone -- you're hitting the real API now.
-3. Add a lead -- confirm it lands in Qualification only.
+3. Add a lead -- confirm it lands in Qualification only. Add another with "Is RFP" checked -- confirm it lands in the frozen RFP lane instead, can't be dragged out, and has no forward/backward buttons.
 4. Move it forward, then backward using the arrow buttons, or drag it between columns. Drag a different lead onto "Lost" (confirms first), then Reopen it.
 5. Add an action item with yesterday's date -- confirm it shows an "Overdue" badge on the card and in the Calendar tab.
 6. Add a calendar event and a communication; confirm the communication shows as "Last communication" on the card.
@@ -278,6 +278,8 @@ under those same names works too.
 12. Add a Contact Owner + their Slack ID on the Configuration page, add a contact due tomorrow on the Contacts tab with that owner, then run the outreach test endpoint -- confirm they get a Slack DM (needs `SLACK_BOT_TOKEN` set).
 13. On the Configuration page, add a Sales Artifact tied to a stage -- confirm it shows up as a checklist item (with that stage named next to it) on every lead, and that checking it off persists after closing and reopening the lead.
 14. On the Contacts tab, add one contact of each type (Contact, Partnership, Non-Qualified Lead) -- confirm they land in three separately-labeled sections, each sorted by next outreach date.
+15. Open the RFP lead from step 3, confirm the Sales Artifacts section is hidden and a "Convert to lead" button shows next to Archive lead. Click it -- confirm the lead moves to Pending Sale, is now a normal draggable lead, and Sales Artifacts reappears. Open a standard (non-RFP) lead -- confirm it instead shows a "Convert to RFP" button, and clicking it moves the lead into the frozen RFP lane.
+16. Add a Non-Qualified Lead with no company name, click its "Convert to lead" button -- confirm a new lead appears on the board in Qualification titled "Unknown Company" and the NQL entry is gone from the Contacts tab. Repeat with a company name set to confirm it's used instead of the placeholder.
 
 ---
 
@@ -354,9 +356,10 @@ tested at this scale, so the model favors simplicity over cleverness:
   `PUT /api/config`) -- there's no stage-editing UI yet. To set the lane
   descriptions to match the ones this POC ships with by default:
   ```bash
-  curl -X PUT https://<your-swa-hostname>/api/config \
+  curl -X PUT https://green-sky-07e9b5510.6.azurestaticapps.net/api/config \
     -H "Content-Type: application/json" \
     -d '{"stages":[
+      {"key":"rfp","label":"RFP","probability":5,"order":0,"description":"Incoming RFP","frozen":true},
       {"key":"qualification","label":"Qualification","probability":10,"order":1,"description":"Intro to FG and ICP"},
       {"key":"discovery","label":"Discovery","probability":20,"order":2,"description":"Discovery and Ideation Sessions"},
       {"key":"validation","label":"Validation","probability":50,"order":3,"description":"Playbook Delivered"},
@@ -370,6 +373,16 @@ tested at this scale, so the model favors simplicity over cleverness:
   stages still match this POC's defaults (key/label/probability/order
   unchanged) -- if you've customized any of those, merge the `description`
   fields into your current array instead of overwriting it.
+- **The `rfp` stage is required for the RFP lane to work.** It's included
+  in `infra/seed-config.json` for fresh deployments, but an already-live
+  `app-config` document needs it added once via the `PUT` above (or a
+  merge, per the note just above) -- the "Is RFP" checkbox and the "Convert
+  to lead" button both depend on a stage with `key: "rfp"` and
+  `frozen: true` existing in config. The `frozen` flag is what makes a lane
+  non-draggable with no forward/backward buttons -- it's checked both
+  client-side (board rendering) and server-side (`updateLeadStage`), so a
+  stage can't accidentally become frozen by adding the flag to it without
+  also adding the matching "convert" escape hatch your workflow needs.
 
 ## Known POC limitations worth knowing about
 

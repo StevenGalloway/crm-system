@@ -332,6 +332,10 @@ input:focus, textarea:focus, select:focus {
   background: var(--brand-gray-dark);
 }
 
+.column.is-rfp .column-header {
+  background: var(--brand-slate-blue);
+}
+
 .column-header-top {
   display: flex;
   align-items: baseline;
@@ -438,6 +442,11 @@ input:focus, textarea:focus, select:focus {
 .card.is-lost {
   border-left-color: var(--brand-bright-red);
   opacity: 0.72;
+}
+
+.card.is-rfp {
+  border-left-color: var(--brand-gray-dark);
+  cursor: default;
 }
 
 .card-top {

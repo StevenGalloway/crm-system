@@ -3,6 +3,7 @@ const { leadsContainer, configContainer } = require('../cosmosClient');
 
 const LOST_STAGE = 'lost';
 const REOPEN_STAGE = 'qualification';
+const FROZEN_STAGE = 'rfp';
 
 async function getStages() {
   const { resource } = await configContainer.item('app-config', 'app-config').read();
@@ -11,7 +12,7 @@ async function getStages() {
 
 function activeStageOrder(stages) {
   return stages
-    .filter((s) => !s.terminal)
+    .filter((s) => !s.terminal && !s.frozen)
     .sort((a, b) => a.order - b.order)
     .map((s) => s.key);
 }
@@ -43,6 +44,10 @@ app.http('updateLeadStage', {
       return { status: 404, jsonBody: { error: 'Lead not found' } };
     }
     if (!lead) return { status: 404, jsonBody: { error: 'Lead not found' } };
+
+    if (lead.stage === FROZEN_STAGE || targetStage === FROZEN_STAGE) {
+      return { status: 400, jsonBody: { error: 'RFP leads are frozen -- use Convert to lead instead' } };
+    }
 
     const stages = await getStages();
     const stageOrder = activeStageOrder(stages);

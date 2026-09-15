@@ -12,6 +12,7 @@
     id: 'app-config',
     type: 'config',
     stages: [
+      { key: 'rfp', label: 'RFP', probability: 5, order: 0, description: 'Incoming RFP', frozen: true },
       { key: 'qualification', label: 'Qualification', probability: 10, order: 1, description: 'Intro to FG and ICP' },
       { key: 'discovery', label: 'Discovery', probability: 20, order: 2, description: 'Discovery and Ideation Sessions' },
       { key: 'validation', label: 'Validation', probability: 50, order: 3, description: 'Playbook Delivered' },
@@ -180,6 +181,43 @@
     return contact;
   }
 
+  // Demo mode has no real backend -- each page loads this script fresh, so
+  // without this, an action taken on one page (e.g. converting a contact to
+  // a lead on the Contacts page) would be invisible everywhere else (e.g.
+  // the board), since it'd only ever exist in that page's private in-memory
+  // copy of this store. Persisting to localStorage after every mutation and
+  // rehydrating on load makes demo mode survive navigation between pages,
+  // the same way the real API (backed by Cosmos DB) does.
+  const STORAGE_KEY = 'crm-demo-state-v2';
+
+  function loadPersistedState() {
+    let saved;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      saved = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    if (!saved || typeof saved !== 'object') return;
+    if (saved.config) Object.assign(config, saved.config);
+    if (Array.isArray(saved.leads)) leads = saved.leads;
+    if (Array.isArray(saved.otherItems)) otherItems = saved.otherItems;
+    if (Array.isArray(saved.recurringTasks)) recurringTasks = saved.recurringTasks;
+    if (Array.isArray(saved.contacts)) contacts = saved.contacts;
+    if (typeof saved.seq === 'number') seq = saved.seq;
+  }
+
+  function persist() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ config, leads, otherItems, recurringTasks, contacts, seq }));
+    } catch {
+      // Private browsing / storage disabled -- demo mode still works within a single page.
+    }
+  }
+
+  loadPersistedState();
+
   function findLead(id) {
     const lead = leads.find((l) => l.id === id);
     if (!lead) throw new Error('Lead not found');
@@ -187,7 +225,7 @@
   }
 
   const STAGE_ORDER = config.stages
-    .filter((s) => !s.terminal)
+    .filter((s) => !s.terminal && !s.frozen)
     .sort((a, b) => a.order - b.order)
     .map((s) => s.key);
 
@@ -202,7 +240,7 @@
     return result;
   }
 
-  window.DemoApi = {
+  const DemoApiImpl = {
     getConfig: () => config,
 
     updateConfig: (body) => {
@@ -221,13 +259,15 @@
     createLead: (body) => {
       if (!body.companyName || !body.companyName.trim()) throw new Error('companyName is required');
       const now = new Date().toISOString();
+      const isRFP = body.isRFP === true;
+      const startingStage = isRFP ? 'rfp' : 'qualification';
       const lead = {
         id: uid(), type: 'lead', companyName: body.companyName.trim(), dealName: body.dealName || '',
         contactName: body.contactName || '', contactEmail: body.contactEmail || '',
         contactPhone: body.contactPhone || '', clientPartner: body.clientPartner || '',
-        dealValue: Number(body.dealValue) || 0,
-        stage: 'qualification', archived: false, createdAt: now, updatedAt: now,
-        stageHistory: [{ stage: 'qualification', enteredAt: now }],
+        dealValue: Number(body.dealValue) || 0, isRFP,
+        stage: startingStage, archived: false, createdAt: now, updatedAt: now,
+        stageHistory: [{ stage: startingStage, enteredAt: now }],
         actionItems: [], calendarEvents: [], communications: [], completedArtifactIds: [],
       };
       leads.unshift(lead);
@@ -245,6 +285,9 @@
 
     updateStage: (id, action, targetStage) => {
       const lead = findLead(id);
+      if (lead.stage === 'rfp' || targetStage === 'rfp') {
+        throw new Error('RFP leads are frozen -- use Convert to lead instead');
+      }
       const idx = STAGE_ORDER.indexOf(lead.stage);
       if (targetStage !== undefined) {
         if (!config.stages.some((s) => s.key === targetStage)) throw new Error('Unknown target stage');
@@ -267,6 +310,26 @@
       }
       lead.updatedAt = new Date().toISOString();
       lead.stageHistory.push({ stage: lead.stage, enteredAt: lead.updatedAt });
+      return lead;
+    },
+
+    convertRfpToLead: (id) => {
+      const lead = findLead(id);
+      if (!lead.isRFP) throw new Error('Only an RFP lead can be converted');
+      lead.isRFP = false;
+      lead.stage = 'pending_sale';
+      lead.updatedAt = new Date().toISOString();
+      lead.stageHistory.push({ stage: 'pending_sale', enteredAt: lead.updatedAt });
+      return lead;
+    },
+
+    convertLeadToRfp: (id) => {
+      const lead = findLead(id);
+      if (lead.isRFP) throw new Error('Lead is already an RFP');
+      lead.isRFP = true;
+      lead.stage = 'rfp';
+      lead.updatedAt = new Date().toISOString();
+      lead.stageHistory.push({ stage: 'rfp', enteredAt: lead.updatedAt });
       return lead;
     },
 
@@ -450,6 +513,7 @@
       const contactTypes = ['Contact', 'Partnership', 'Non-Qualified Lead'];
       contacts.push({
         id: uid(), name: body.name, contactType: contactTypes.includes(body.contactType) ? body.contactType : 'Contact',
+        companyName: body.companyName ? body.companyName.trim() : '',
         nextOutreachDate: body.nextOutreachDate, nextOutreachAction: body.nextOutreachAction || '',
         contactOwner: body.contactOwner || '',
         outreachNotifiedFor: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
@@ -461,6 +525,7 @@
       const contact = findContact(contactId);
       if (body.name !== undefined) contact.name = body.name;
       if (body.contactType !== undefined) contact.contactType = body.contactType;
+      if (body.companyName !== undefined) contact.companyName = body.companyName.trim();
       if (body.nextOutreachDate !== undefined) contact.nextOutreachDate = body.nextOutreachDate;
       if (body.nextOutreachAction !== undefined) contact.nextOutreachAction = body.nextOutreachAction;
       if (body.contactOwner !== undefined) contact.contactOwner = body.contactOwner;
@@ -472,6 +537,24 @@
       findContact(contactId);
       contacts = contacts.filter((c) => c.id !== contactId);
       return contacts;
+    },
+
+    convertContactToLead: (contactId) => {
+      const contact = findContact(contactId);
+      if (contact.contactType !== 'Non-Qualified Lead') throw new Error('Only a Non-Qualified Lead can be converted to a lead');
+      const now = new Date().toISOString();
+      const lead = {
+        id: uid(), type: 'lead',
+        companyName: (contact.companyName && contact.companyName.trim()) || 'Unknown Company',
+        dealName: '', contactName: contact.name, contactEmail: '', contactPhone: '',
+        clientPartner: contact.contactOwner || '', dealValue: 0, isRFP: false,
+        stage: 'qualification', archived: false, createdAt: now, updatedAt: now,
+        stageHistory: [{ stage: 'qualification', enteredAt: now }],
+        actionItems: [], calendarEvents: [], communications: [], completedArtifactIds: [],
+      };
+      leads.unshift(lead);
+      contacts = contacts.filter((c) => c.id !== contactId);
+      return lead;
     },
 
     testOutreachNotifier: () => {
@@ -516,4 +599,18 @@
       return { overdueActionItems, upcomingActionItems, upcomingEvents };
     },
   };
+
+  // Persist after every call (reads included -- harmless, and simplest way
+  // to guarantee no mutating method is ever missed as new ones are added).
+  window.DemoApi = new Proxy(DemoApiImpl, {
+    get(target, prop) {
+      const fn = target[prop];
+      if (typeof fn !== 'function') return fn;
+      return (...args) => {
+        const result = fn.apply(target, args);
+        persist();
+        return result;
+      };
+    },
+  });
 })();

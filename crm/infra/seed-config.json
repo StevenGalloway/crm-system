@@ -2,6 +2,7 @@
   "id": "app-config",
   "type": "config",
   "stages": [
+    { "key": "rfp", "label": "RFP", "probability": 5, "order": 0, "description": "Incoming RFP", "frozen": true },
     { "key": "qualification", "label": "Qualification", "probability": 10, "order": 1, "description": "Intro to FG and ICP" },
     { "key": "discovery", "label": "Discovery", "probability": 20, "order": 2, "description": "Discovery and Ideation Sessions" },
     { "key": "validation", "label": "Validation", "probability": 50, "order": 3, "description": "Playbook Delivered" },

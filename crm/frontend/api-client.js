@@ -63,6 +63,7 @@ function demoRoute(method, pathAndQuery, body) {
     }
     if (parts.length === 2 && method === 'PATCH') return window.DemoApi.updateContact(parts[1], body);
     if (parts.length === 2 && method === 'DELETE') return window.DemoApi.deleteContact(parts[1]);
+    if (parts[2] === 'convert-to-lead' && method === 'POST') return window.DemoApi.convertContactToLead(parts[1]);
   }
 
   if (parts[0] === 'notify' && parts[1] === 'outreach-test' && method === 'POST') {
@@ -78,6 +79,8 @@ function demoRoute(method, pathAndQuery, body) {
     if (parts.length === 2 && method === 'PATCH') return window.DemoApi.updateLead(id, body);
     if (parts.length === 2 && method === 'DELETE') return window.DemoApi.deleteLead(id);
     if (parts[2] === 'stage') return window.DemoApi.updateStage(id, body.action, body.targetStage);
+    if (parts[2] === 'convert-to-lead' && method === 'PATCH') return window.DemoApi.convertRfpToLead(id);
+    if (parts[2] === 'convert-to-rfp' && method === 'PATCH') return window.DemoApi.convertLeadToRfp(id);
     if (parts[2] === 'archive') return window.DemoApi.archiveLead(id, body.archived !== false);
     if (parts[2] === 'actions' && parts.length === 3) return window.DemoApi.addActionItem(id, body);
     if (parts[2] === 'actions' && parts.length === 4) return window.DemoApi.updateActionItem(id, parts[3], body);

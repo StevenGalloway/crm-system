@@ -123,7 +123,7 @@ function renderBoard() {
 
 function renderBoardSummary() {
   const summary = document.getElementById('boardSummary');
-  const total = leads.reduce((sum, l) => sum + (l.dealValue || 0), 0);
+  const total = leads.filter((l) => !l.isRFP).reduce((sum, l) => sum + (l.dealValue || 0), 0);
   summary.innerHTML = `
     <span class="board-summary-label">Total pipeline value</span>
     <span class="board-summary-value">${formatCurrency(total)}</span>
@@ -133,7 +133,7 @@ function renderBoardSummary() {
 
 function buildColumn(stage, leadsInStage) {
   const col = document.createElement('section');
-  col.className = 'column' + (stage.terminal ? ' is-lost' : '');
+  col.className = 'column' + (stage.terminal ? ' is-lost' : '') + (stage.frozen ? ' is-rfp' : '');
 
   const stageTotal = leadsInStage.reduce((sum, l) => sum + (l.dealValue || 0), 0);
 
@@ -173,6 +173,10 @@ function buildColumn(stage, leadsInStage) {
 
   body.addEventListener('dragover', (e) => {
     e.preventDefault();
+    if (stage.frozen) {
+      e.dataTransfer.dropEffect = 'none';
+      return;
+    }
     e.dataTransfer.dropEffect = 'move';
     body.classList.add('drag-over');
   });
@@ -182,6 +186,7 @@ function buildColumn(stage, leadsInStage) {
   body.addEventListener('drop', (e) => {
     e.preventDefault();
     body.classList.remove('drag-over');
+    if (stage.frozen) return;
     const leadId = e.dataTransfer.getData('text/plain');
     if (leadId) handleDropOnStage(leadId, stage);
   });
@@ -193,11 +198,11 @@ function buildCard(lead) {
   const card = document.createElement('article');
   const isWin = lead.stage === 'win';
   const isLost = lead.stage === 'lost';
-  card.className = 'card' + (isWin ? ' is-win' : '') + (isLost ? ' is-lost' : '');
-  card.dataset.leadId = lead.id;
-  card.draggable = true;
-
   const stage = stageByKey(lead.stage);
+  const isFrozen = !!(stage && stage.frozen);
+  card.className = 'card' + (isWin ? ' is-win' : '') + (isLost ? ' is-lost' : '') + (lead.isRFP ? ' is-rfp' : '');
+  card.dataset.leadId = lead.id;
+  card.draggable = !isFrozen;
   const comm = lastCommunication(lead);
   const overdue = leadHasOverdue(lead);
 
@@ -219,6 +224,8 @@ function buildCard(lead) {
   let actionsHtml;
   if (lead.stage === 'lost') {
     actionsHtml = `<button class="btn-text" data-action="reopen" data-lead-id="${lead.id}">Reopen</button>`;
+  } else if (isFrozen) {
+    actionsHtml = '';
   } else {
     actionsHtml = `
       <div class="card-move-buttons">
@@ -315,6 +322,7 @@ function wireStaticEvents() {
       contactPhone: form.contactPhone.value,
       clientPartner: form.clientPartner.value,
       dealValue: form.dealValue.value,
+      isRFP: form.isRFP.checked,
     };
     try {
       await apiPost('/leads', payload);
@@ -431,7 +439,7 @@ function renderLeadModal() {
       </form>
     </div>
 
-    ${(config.salesArtifacts || []).length ? `
+    ${!lead.isRFP && (config.salesArtifacts || []).length ? `
     <div class="modal-section">
       <div class="modal-section-header"><h3>Sales Artifacts</h3></div>
       <ul class="detail-list">
@@ -559,6 +567,7 @@ function renderLeadModal() {
 
   document.getElementById('leadModalFooter').innerHTML = `
     <button class="btn-danger-text" data-action="delete" style="margin-right:auto;">Delete lead</button>
+    ${lead.isRFP ? `<button class="btn btn-secondary" data-action="convert-to-lead">Convert to lead</button>` : `<button class="btn btn-secondary" data-action="convert-to-rfp">Convert to RFP</button>`}
     <button class="btn btn-secondary" data-action="${lead.archived ? 'restore' : 'archive'}">${lead.archived ? 'Restore lead' : 'Archive lead'}</button>
     <button class="btn btn-secondary" data-close="leadModal">Close</button>
   `;
@@ -730,6 +739,34 @@ function wireLeadModalEvents(lead) {
   footer.querySelectorAll('[data-action]').forEach((btn) => {
     if (btn.dataset.action === 'delete') {
       btn.addEventListener('click', () => openDeleteLeadConfirm(lead));
+      return;
+    }
+    if (btn.dataset.action === 'convert-to-lead') {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Convert this RFP to a standard lead in Pending Sale?')) return;
+        try {
+          await apiPatch(`/leads/${lead.id}/convert-to-lead`, {});
+          closeModal('leadModal');
+          await loadLeads();
+          showToast('Converted to lead -- moved to Pending Sale');
+        } catch (err) {
+          showToast(err.message, true);
+        }
+      });
+      return;
+    }
+    if (btn.dataset.action === 'convert-to-rfp') {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Convert this lead to an RFP? It will move to the frozen RFP lane.')) return;
+        try {
+          await apiPatch(`/leads/${lead.id}/convert-to-rfp`, {});
+          closeModal('leadModal');
+          await loadLeads();
+          showToast('Converted to RFP');
+        } catch (err) {
+          showToast(err.message, true);
+        }
+      });
       return;
     }
     btn.addEventListener('click', async () => {

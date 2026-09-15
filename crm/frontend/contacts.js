@@ -58,22 +58,26 @@ function buildContactRow(c, todayStr) {
           <select name="contactOwner" style="width:160px;">${ownerOptions}</select>
           <button type="submit" class="btn btn-secondary">Save</button>
           <button type="button" class="btn-text" data-cancel-edit-contact="${c.id}">Cancel</button>
+          <input class="grow" name="companyName" value="${escapeHtml(c.companyName || '')}" placeholder="Company name (optional)" style="flex-basis:100%;" />
           <input class="grow" name="nextOutreachAction" value="${escapeHtml(c.nextOutreachAction || '')}" placeholder="Next outreach action" style="flex-basis:100%;" />
         </form>
       </li>`;
   }
 
   const overdue = c.nextOutreachDate < todayStr;
+  const isNQL = (c.contactType || 'Contact') === 'Non-Qualified Lead';
   return `
     <li class="detail-item ${overdue ? 'overdue' : ''}">
       <div class="detail-item-top">
         <span class="detail-item-title">${escapeHtml(c.name)}</span>
         <span style="display:flex;align-items:center;gap:8px;">
           <span class="detail-item-meta">Next outreach ${formatDate(c.nextOutreachDate)}</span>
+          ${isNQL ? `<button class="btn-text" data-convert-contact="${c.id}" style="padding:0;">Convert to lead</button>` : ''}
           <button class="btn-text" data-edit-contact="${c.id}" style="padding:0;">Edit</button>
           <button class="btn-danger-text" data-delete-contact="${c.id}" style="padding:0;">Delete</button>
         </span>
       </div>
+      ${c.companyName ? `<div class="detail-item-meta">Company: ${escapeHtml(c.companyName)}</div>` : ''}
       <div class="detail-item-meta">${c.contactOwner ? `Owner: ${escapeHtml(c.contactOwner)}` : 'Unassigned'}</div>
       ${c.nextOutreachAction ? `<div class="detail-item-meta">${escapeHtml(c.nextOutreachAction)}</div>` : ''}
     </li>`;
@@ -122,9 +126,23 @@ function renderList() {
           nextOutreachDate: f.nextOutreachDate.value,
           nextOutreachAction: f.nextOutreachAction.value,
           contactOwner: f.contactOwner.value,
+          companyName: f.companyName.value,
         });
         editingContactId = null;
         await loadContacts();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+  });
+
+  container.querySelectorAll('[data-convert-contact]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Convert this Non-Qualified Lead to a lead on the board (Qualification stage)?')) return;
+      try {
+        await apiPost(`/contacts/${btn.dataset.convertContact}/convert-to-lead`, {});
+        await loadContacts();
+        showToast('Converted to lead');
       } catch (err) {
         showToast(err.message, true);
       }
@@ -158,6 +176,7 @@ function wireEvents() {
         nextOutreachDate: form.nextOutreachDate.value,
         nextOutreachAction: form.nextOutreachAction.value,
         contactOwner: form.contactOwner.value,
+        companyName: form.companyName.value,
       });
       form.reset();
       closeModal('newContactModal');

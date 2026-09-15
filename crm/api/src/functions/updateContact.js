@@ -35,6 +35,9 @@ app.http('updateContact', {
       }
       contact.name = body.name.trim();
     }
+    if (body.companyName !== undefined) {
+      contact.companyName = body.companyName.trim();
+    }
     if (body.nextOutreachDate !== undefined) {
       if (!body.nextOutreachDate) {
         return { status: 400, jsonBody: { error: 'nextOutreachDate cannot be empty' } };

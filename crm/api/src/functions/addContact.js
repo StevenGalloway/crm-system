@@ -40,6 +40,7 @@ app.http('addContact', {
     const contact = {
       id: randomUUID(),
       name: body.name.trim(),
+      companyName: body.companyName ? body.companyName.trim() : '',
       contactType: CONTACT_TYPES.includes(body.contactType) ? body.contactType : 'Contact',
       nextOutreachDate: body.nextOutreachDate,
       nextOutreachAction: body.nextOutreachAction || '',
