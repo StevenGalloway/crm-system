@@ -67,9 +67,17 @@
             </select>
           </div>
         </div>
-        <div class="field">
-          <label for="ctCompany">Company name</label>
-          <input id="ctCompany" name="companyName" placeholder="Optional" />
+        <div class="field-row">
+          <div class="field">
+            <label for="ctCompany">Company name</label>
+            <input id="ctCompany" name="companyName" placeholder="Optional" />
+          </div>
+          <div class="field">
+            <label for="ctClientPartner">Client Partner</label>
+            <select id="ctClientPartner" name="clientPartner">
+              <!-- populated by contacts.js from config.clientPartners -->
+            </select>
+          </div>
         </div>
         <div class="field">
           <label for="ctNextOutreachAction">Next outreach action</label>

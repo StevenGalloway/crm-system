@@ -149,12 +149,14 @@ all -- without it the Functions host finds zero functions and every
 `/api/*` route 404s.
 
 Do **not** add `WEBSITE_TIME_ZONE` -- Static Web Apps' managed Functions
-reject it outright (`InvalidAppSettings`). The pipeline digest's timer
-ticks every 15 minutes and computes Central time fresh via `Intl` on every
-run (see `api/src/scheduleCore.js`), checking it against whatever schedule
-is set on the **Configuration** page (frequency, time of day, and day of
-week/month) -- so DST and the schedule itself are both handled in code, no
-app setting needed. Defaults to daily at 8am Central until you change it.
+reject it outright (`InvalidAppSettings`). `POST /api/notify/tick` (called
+every 15 minutes by `.github/workflows/scheduled-jobs.yml` -- see "Scheduled
+jobs run via GitHub Actions, not Azure timers" below) computes Central time
+fresh via `Intl` on every call (see `api/src/scheduleCore.js`), checking it
+against whatever schedule is set on the **Configuration** page (frequency,
+time of day, and day of week/month) -- so DST and the schedule itself are
+both handled in code, no app setting needed. Defaults to daily at 8am
+Central until you change it.
 
 ### Optional: SLACK_BOT_TOKEN (for per-contact-owner outreach DMs)
 
@@ -177,7 +179,7 @@ az staticwebapp appsettings set \
 
 Then add each contact owner's Slack member ID on the Configuration page
 (find it via their Slack profile → **More** → **Copy member ID**). Without
-this token set, `outreachNotifier` silently does nothing (same "not
+this token set, the outreach check silently does nothing (same "not
 configured, skip" pattern as `SLACK_WEBHOOK_URL`) -- it doesn't error.
 
 ### Where to find these values again
@@ -207,13 +209,58 @@ outside of Cosmos/Slack/Azure themselves.
   Cosmos key included:
   `az staticwebapp appsettings list --name fenway-crm-poc --resource-group fenway-crm-poc-rg`
 
+### Scheduled jobs run via GitHub Actions, not Azure timers
+
+Three background jobs need to run on a schedule: the pipeline digest, the
+recurring task generator, and outreach DMs. Azure Static Web Apps'
+"Managed Functions" hosting (what `api/` deploys as) **only supports
+HTTP-triggered functions** -- Timer triggers are explicitly not a supported
+configuration
+([docs](https://learn.microsoft.com/azure/static-web-apps/apis-functions#constraints)).
+Earlier versions of this app used `app.timer(...)` for these three jobs;
+that ran on borrowed, undocumented behavior for a while and then stopped
+firing entirely, which is why you might see a gap in Slack history if
+you've had this deployed for a bit.
+
+The fix: each job is now a plain HTTP `POST` endpoint, and
+[`.github/workflows/scheduled-jobs.yml`](../.github/workflows/scheduled-jobs.yml)
+calls all three every 15 minutes on a GitHub Actions cron schedule. All
+three are safe to call that often -- each has its own idempotency guard, so
+calling it more often than it actually needs to run is harmless:
+
+- **`POST /api/notify/tick`** -- only actually posts to Slack once per the
+  schedule configured on the Configuration page (frequency + time), via the
+  same `lastSentPeriodKey` gating the old timer used.
+- **`POST /api/notify/outreach-test`** -- only DMs a contact owner once per
+  contact per outreach date (`outreachNotifiedFor` guard).
+- **`POST /api/recurring-tasks/test`** -- only generates each recurring
+  task's occurrence once (`lastGeneratedDate` guard).
+
+If you fork/redeploy this to a different Static Web App, update `BASE_URL`
+in that workflow file to your new hostname. Two things worth knowing about
+GitHub Actions' scheduler specifically: it isn't guaranteed to run at
+exactly `:00/:15/:30/:45` (can be delayed under GitHub-wide load), and
+**GitHub automatically disables a scheduled workflow after 60 days with no
+commits to the repo** -- push anything, or re-enable it manually under the
+repo's **Actions** tab, to bring it back if that happens.
+
+If you'd rather have a "real" Azure Function App with native Timer
+triggers instead of relying on an external scheduler, that means switching
+this API from Managed Functions to Azure's "Bring your own Functions" model
+-- a separately deployed, standalone Function App (Consumption plan or
+above) linked to the Static Web App. That's a bigger architectural change
+(separate deployment pipeline, a bit of ongoing cost) than this repo
+currently sets up.
+
 ### Test on demand, without waiting for a schedule
 
-Three background jobs run on their own timers -- each has a matching
-on-demand HTTP endpoint that runs the exact same logic immediately, so you
-can verify each is wired up correctly without waiting:
+All three of the jobs above can be fired manually any time, independent of
+the GitHub Actions schedule -- handy for checking one is wired up right
+without waiting up to 15 minutes:
 
-**Pipeline digest** (normally runs per the Configuration page's schedule):
+**Pipeline digest** -- unlike `/api/notify/tick`, this bypasses the
+Configuration page's schedule gating entirely and always runs the digest
+logic immediately:
 ```bash
 curl -X POST https://<your-swa-hostname>/api/notify/test
 ```
@@ -227,16 +274,15 @@ curl -X POST https://<your-swa-hostname>/api/notify/test
   try again -- or if the reason says `SLACK_WEBHOOK_URL is not set`, that
   app setting is missing (see step 5 above).
 
-**Recurring task generator** (normally runs daily at 11:00 UTC):
+**Recurring task generator**:
 ```bash
 curl -X POST https://<your-swa-hostname>/api/recurring-tasks/test
 ```
 Returns `{"generated": [...]}` -- any recurring task whose anchor date has
 arrived gets a new instance pushed onto "One Time BD Action Items"
-immediately, instead of waiting for tomorrow's run.
+immediately, instead of waiting for the next scheduled run.
 
-**Outreach DMs** (normally runs daily at 12:30 UTC; needs `SLACK_BOT_TOKEN`
-set, see above):
+**Outreach DMs** (needs `SLACK_BOT_TOKEN` set, see above):
 ```bash
 curl -X POST https://<your-swa-hostname>/api/notify/outreach-test
 ```
@@ -280,6 +326,7 @@ under those same names works too.
 14. On the Contacts tab, add one contact of each type (Contact, Partnership, Non-Qualified Lead) -- confirm they land in three separately-labeled sections, each sorted by next outreach date.
 15. Open the RFP lead from step 3, confirm the Sales Artifacts section is hidden and a "Convert to lead" button shows next to Archive lead. Click it -- confirm the lead moves to Pending Sale, is now a normal draggable lead, and Sales Artifacts reappears. Open a standard (non-RFP) lead -- confirm it instead shows a "Convert to RFP" button, and clicking it moves the lead into the frozen RFP lane.
 16. Add a Non-Qualified Lead with no company name, click its "Convert to lead" button -- confirm a new lead appears on the board in Qualification titled "Unknown Company" and the NQL entry is gone from the Contacts tab. Repeat with a company name set to confirm it's used instead of the placeholder.
+17. On the Contacts tab, confirm each section (Contacts, Partnerships, Non-Qualified Leads) shows its explanatory subtext under the heading. Add/edit a contact with a Client Partner selected (from the same list as leads' Client Partner dropdown) -- confirm it displays on the row and survives a page reload. Convert an NQL that has a Client Partner set -- confirm the new lead carries that same Client Partner over.
 
 ---
 
@@ -403,5 +450,11 @@ tested at this scale, so the model favors simplicity over cleverness:
   if exact-day-of-month matters. See `api/src/recurringCore.js`.
 - **Outreach DMs need one-time Slack app setup** (Bot Token Scopes +
   reinstall) beyond the Incoming Webhook already used for the pipeline
-  digest -- see "Optional: SLACK_BOT_TOKEN" under step 5. Without it,
-  `outreachNotifier` just no-ops rather than failing loudly.
+  digest -- see "Optional: SLACK_BOT_TOKEN" under step 5. Without it, the
+  outreach check just no-ops rather than failing loudly.
+- **Scheduled jobs depend on GitHub Actions, not Azure.** See "Scheduled
+  jobs run via GitHub Actions, not Azure timers" under step 5 -- if that
+  workflow gets disabled (60 days with no repo commits) or the repo is
+  moved/forked without carrying it over, the pipeline digest, outreach DMs,
+  and recurring task generation all silently stop, with nothing in Azure
+  itself to indicate why.

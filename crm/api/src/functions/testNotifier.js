@@ -1,11 +1,12 @@
 const { app } = require('@azure/functions');
 const { runDigest } = require('../notifierCore');
 
-// Manually fires the same digest the dailyNotifier timer sends, so the
-// Slack integration (and SLACK_WEBHOOK_URL) can be tested on demand instead
-// of waiting for the 8am weekday schedule. Posts to whatever webhook is
-// currently configured, so point SLACK_WEBHOOK_URL at a test channel
-// before using this against real pipeline data.
+// Manually fires the same digest dailyNotifier (POST /notify/tick) sends,
+// bypassing its schedule gating entirely -- so the Slack integration (and
+// SLACK_WEBHOOK_URL) can be tested on demand regardless of the configured
+// schedule. Posts to whatever webhook is currently configured, so point
+// SLACK_WEBHOOK_URL at a test channel before using this against real
+// pipeline data.
 app.http('testNotifier', {
   methods: ['POST'],
   route: 'notify/test',

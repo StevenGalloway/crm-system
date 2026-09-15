@@ -56,6 +56,9 @@ app.http('updateContact', {
     if (body.contactOwner !== undefined) {
       contact.contactOwner = body.contactOwner;
     }
+    if (body.clientPartner !== undefined) {
+      contact.clientPartner = body.clientPartner;
+    }
     contact.updatedAt = new Date().toISOString();
 
     try {

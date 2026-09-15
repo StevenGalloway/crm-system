@@ -1,0 +1,40 @@
+name: Scheduled notification jobs
+
+# Azure Static Web Apps' "Managed Functions" hosting (used by this app) only
+# supports HTTP-triggered functions -- Timer triggers are not a supported
+# configuration: https://learn.microsoft.com/azure/static-web-apps/apis-functions#constraints
+# So instead of an in-process timer, this workflow is the scheduler: it hits
+# three HTTP endpoints every 15 minutes. All three are safe to call that
+# often -- each has its own idempotency guard against duplicate work:
+#   - /api/notify/tick            -- only actually posts once per the
+#                                    configured digest schedule (frequency +
+#                                    time, set on the Configuration page).
+#   - /api/notify/outreach-test   -- only DMs a contact owner once per
+#                                    contact's outreach date.
+#   - /api/recurring-tasks/test   -- only generates each recurring task's
+#                                    occurrence once.
+#
+# Note: GitHub's scheduled workflows aren't guaranteed to run at exactly the
+# times below (they can be delayed under load), and GitHub disables a
+# scheduled workflow automatically after 60 days with no repo activity --
+# push any commit (or re-enable it under the Actions tab) to bring it back.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+env:
+  # Update this if the production Static Web App's default hostname ever changes.
+  BASE_URL: https://green-sky-07e9b5510.6.azurestaticapps.net
+
+jobs:
+  run-scheduled-jobs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pipeline digest tick
+        run: curl -sf -X POST "$BASE_URL/api/notify/tick"
+      - name: Outreach reminder check
+        run: curl -sf -X POST "$BASE_URL/api/notify/outreach-test"
+      - name: Recurring task generator
+        run: curl -sf -X POST "$BASE_URL/api/recurring-tasks/test"

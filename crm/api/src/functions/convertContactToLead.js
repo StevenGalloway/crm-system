@@ -38,7 +38,7 @@ app.http('convertContactToLead', {
       contactName: contact.name,
       contactEmail: '',
       contactPhone: '',
-      clientPartner: contact.contactOwner || '',
+      clientPartner: contact.clientPartner || '',
       dealValue: 0,
       isRFP: false,
       stage: TARGET_STAGE,

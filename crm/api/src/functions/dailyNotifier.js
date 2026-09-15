@@ -5,36 +5,48 @@ const { DEFAULT_SCHEDULE, shouldSendNow, periodKey } = require('../scheduleCore'
 
 const CONFIG_DOC_ID = 'app-config';
 
-// Ticks every 15 minutes so the configured schedule (frequency + time, set
-// on the Configuration page) can be checked at that resolution, rather than
-// being locked to a single fixed hour in code.
-app.timer('dailyNotifier', {
-  schedule: '0 */15 * * * *',
-  handler: async (myTimer, context) => {
+// HTTP-triggered, not a Timer trigger -- Azure Static Web Apps' "Managed
+// Functions" only support HTTP triggers (Timer/Queue/Blob etc. are not a
+// supported configuration: https://learn.microsoft.com/azure/static-web-apps/apis-functions#constraints).
+// An external scheduler (see .github/workflows/scheduled-jobs.yml) calls
+// this every 15 minutes instead, so the configured schedule (frequency +
+// time, set on the Configuration page) can still be checked at that
+// resolution -- the gating logic below is unchanged from when this ran on
+// an in-process timer.
+app.http('dailyNotifier', {
+  methods: ['POST'],
+  route: 'notify/tick',
+  authLevel: 'anonymous',
+  handler: async (request, context) => {
     let configDoc;
     try {
       const { resource } = await configContainer.item(CONFIG_DOC_ID, CONFIG_DOC_ID).read();
       configDoc = resource;
     } catch (err) {
       context.error('dailyNotifier: failed to load config', err);
-      return;
+      return { status: 500, jsonBody: { error: 'Failed to load config' } };
     }
 
     const schedule = { ...DEFAULT_SCHEDULE, ...(configDoc.notificationSchedule || {}) };
     const now = new Date();
-    if (!shouldSendNow(schedule, now)) return;
+    if (!shouldSendNow(schedule, now)) {
+      return { jsonBody: { posted: false, reason: 'Not the configured send time' } };
+    }
 
     const key = periodKey(schedule, now);
-    if (schedule.lastSentPeriodKey === key) return;
+    if (schedule.lastSentPeriodKey === key) {
+      return { jsonBody: { posted: false, reason: 'Already sent for this period' } };
+    }
 
+    let result;
     try {
-      const result = await runDigest(context);
+      result = await runDigest(context);
       if (!result.posted) {
         context.warn(result.reason);
       }
     } catch (err) {
       context.error('dailyNotifier failed', err);
-      return; // don't record the period as handled if the run itself failed
+      return { status: 500, jsonBody: { error: 'Digest run failed', detail: err.message } };
     }
 
     configDoc.notificationSchedule = { ...schedule, lastSentPeriodKey: key };
@@ -43,5 +55,7 @@ app.timer('dailyNotifier', {
     } catch (err) {
       context.error('dailyNotifier: failed to persist lastSentPeriodKey', err);
     }
+
+    return { jsonBody: result };
   },
 });

@@ -515,7 +515,7 @@
         id: uid(), name: body.name, contactType: contactTypes.includes(body.contactType) ? body.contactType : 'Contact',
         companyName: body.companyName ? body.companyName.trim() : '',
         nextOutreachDate: body.nextOutreachDate, nextOutreachAction: body.nextOutreachAction || '',
-        contactOwner: body.contactOwner || '',
+        contactOwner: body.contactOwner || '', clientPartner: body.clientPartner || '',
         outreachNotifiedFor: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
       });
       return contacts;
@@ -529,6 +529,7 @@
       if (body.nextOutreachDate !== undefined) contact.nextOutreachDate = body.nextOutreachDate;
       if (body.nextOutreachAction !== undefined) contact.nextOutreachAction = body.nextOutreachAction;
       if (body.contactOwner !== undefined) contact.contactOwner = body.contactOwner;
+      if (body.clientPartner !== undefined) contact.clientPartner = body.clientPartner;
       contact.updatedAt = new Date().toISOString();
       return contacts;
     },
@@ -547,7 +548,7 @@
         id: uid(), type: 'lead',
         companyName: (contact.companyName && contact.companyName.trim()) || 'Unknown Company',
         dealName: '', contactName: contact.name, contactEmail: '', contactPhone: '',
-        clientPartner: contact.contactOwner || '', dealValue: 0, isRFP: false,
+        clientPartner: contact.clientPartner || '', dealValue: 0, isRFP: false,
         stage: 'qualification', archived: false, createdAt: now, updatedAt: now,
         stageHistory: [{ stage: 'qualification', enteredAt: now }],
         actionItems: [], calendarEvents: [], communications: [], completedArtifactIds: [],

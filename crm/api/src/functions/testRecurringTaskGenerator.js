@@ -1,8 +1,12 @@
 const { app } = require('@azure/functions');
 const { generateDueTasks } = require('../recurringCore');
 
-// Manually fires the recurring-task generator on demand, so a newly-created
-// template can be checked without waiting for the daily schedule.
+// Fires the recurring-task generator. Called both for on-demand manual
+// testing and, on a schedule, by .github/workflows/scheduled-jobs.yml --
+// Azure Static Web Apps' Managed Functions don't support Timer triggers, so
+// an external scheduler hitting this HTTP endpoint stands in for one. Safe
+// to call as often as the schedule likes: each template's lastGeneratedDate
+// guard prevents generating the same occurrence twice.
 app.http('testRecurringTaskGenerator', {
   methods: ['POST'],
   route: 'recurring-tasks/test',

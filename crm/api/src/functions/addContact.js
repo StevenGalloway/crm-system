@@ -45,6 +45,7 @@ app.http('addContact', {
       nextOutreachDate: body.nextOutreachDate,
       nextOutreachAction: body.nextOutreachAction || '',
       contactOwner: body.contactOwner || '',
+      clientPartner: body.clientPartner || '',
       outreachNotifiedFor: null,
       createdAt: now,
       updatedAt: now,
