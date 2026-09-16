@@ -445,7 +445,7 @@ step to inject a version at deploy time, so it's a plain constant).
 
 ### Version history
 
-- **1.1.0** -- Split "Contacts, NQLs, & Partnerships" into separate
+- **2.1.0** -- Split "Contacts, NQLs, & Partnerships" into separate
   Contacts and NQLs & Partnerships tabs, each with search plus Owner/Client
   Partner/date-due filtering (including an "Unassigned" option); added
   Owner + Client Partner filtering to the Board and a new `leadOwner` field
