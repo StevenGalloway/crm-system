@@ -735,6 +735,57 @@ input:focus, textarea:focus, select:focus {
 }
 
 /* ---------------------------------------------------------------------
+   Filter bar (search + dropdown/date filters), used on the Board,
+   Contacts, and NQLs & Partnerships pages.
+--------------------------------------------------------------------- */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  margin-bottom: 18px;
+}
+
+.board .filter-bar,
+#boardFilterBar {
+  margin: 12px 20px 0;
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+}
+
+.filter-field label {
+  margin-bottom: 0;
+}
+
+.filter-field.filter-search {
+  flex: 1 1 220px;
+  min-width: 200px;
+}
+
+.filter-date-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-date-range input {
+  min-width: 130px;
+}
+
+.filter-bar .btn-text {
+  padding: 8px 6px;
+}
+
+/* ---------------------------------------------------------------------
    Calendar page
 --------------------------------------------------------------------- */
 .calendar-page {

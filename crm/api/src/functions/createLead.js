@@ -37,6 +37,7 @@ app.http('createLead', {
       contactEmail: body.contactEmail || '',
       contactPhone: body.contactPhone || '',
       clientPartner: body.clientPartner || '',
+      leadOwner: body.leadOwner || '',
       dealValue: Number(body.dealValue) || 0,
       isRFP,
       stage: startingStage,

@@ -64,7 +64,7 @@
     return [
       {
         id: uid(), type: 'lead', companyName: 'Harbor Freight Logistics', dealName: 'Fleet Telematics', contactName: 'Dana Reyes',
-        contactEmail: 'dana@harborfreight.example', contactPhone: '555-0101', clientPartner: 'Sam Whitfield',
+        contactEmail: 'dana@harborfreight.example', contactPhone: '555-0101', clientPartner: 'Sam Whitfield', leadOwner: 'Sam Whitfield',
         dealValue: 84000, stage: 'validation', archived: false, createdAt: now, updatedAt: now,
         stageHistory: [
           { stage: 'qualification', enteredAt: daysFromNow(-20) },
@@ -84,7 +84,7 @@
       },
       {
         id: uid(), type: 'lead', companyName: 'Northgate Credit Union', dealName: 'Core Banking Migration', contactName: 'Marcus Ito',
-        contactEmail: 'mito@northgate.example', contactPhone: '555-0110', clientPartner: 'Renee Ashby',
+        contactEmail: 'mito@northgate.example', contactPhone: '555-0110', clientPartner: 'Renee Ashby', leadOwner: 'Renee Ashby',
         dealValue: 152000, stage: 'decision_due', archived: false, createdAt: now, updatedAt: now,
         stageHistory: [{ stage: 'qualification', enteredAt: daysFromNow(-30) }],
         actionItems: [
@@ -265,6 +265,7 @@
         id: uid(), type: 'lead', companyName: body.companyName.trim(), dealName: body.dealName || '',
         contactName: body.contactName || '', contactEmail: body.contactEmail || '',
         contactPhone: body.contactPhone || '', clientPartner: body.clientPartner || '',
+        leadOwner: body.leadOwner || '',
         dealValue: Number(body.dealValue) || 0, isRFP,
         stage: startingStage, archived: false, createdAt: now, updatedAt: now,
         stageHistory: [{ stage: startingStage, enteredAt: now }],
@@ -276,7 +277,7 @@
 
     updateLead: (id, body) => {
       const lead = findLead(id);
-      ['companyName', 'dealName', 'contactName', 'contactEmail', 'contactPhone', 'clientPartner', 'dealValue'].forEach((f) => {
+      ['companyName', 'dealName', 'contactName', 'contactEmail', 'contactPhone', 'clientPartner', 'leadOwner', 'dealValue'].forEach((f) => {
         if (body[f] !== undefined) lead[f] = f === 'dealValue' ? Number(body[f]) || 0 : body[f];
       });
       lead.updatedAt = new Date().toISOString();
@@ -548,7 +549,7 @@
         id: uid(), type: 'lead',
         companyName: (contact.companyName && contact.companyName.trim()) || 'Unknown Company',
         dealName: '', contactName: contact.name, contactEmail: '', contactPhone: '',
-        clientPartner: contact.clientPartner || '', dealValue: 0, isRFP: false,
+        clientPartner: contact.clientPartner || '', leadOwner: contact.contactOwner || '', dealValue: 0, isRFP: false,
         stage: 'qualification', archived: false, createdAt: now, updatedAt: now,
         stageHistory: [{ stage: 'qualification', enteredAt: now }],
         actionItems: [], calendarEvents: [], communications: [], completedArtifactIds: [],

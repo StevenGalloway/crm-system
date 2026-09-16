@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Fenway Group | Contacts</title>
+<title>Fenway Group | NQLs &amp; Partnerships</title>
 <link rel="icon" type="image/png" href="assets/fenway-logo-icon.png" />
 <link rel="stylesheet" href="styles.css" />
 </head>
@@ -16,18 +16,18 @@
     <a href="calendar.html">Calendar</a>
     <a href="otheritems.html">One Time BD Action Items</a>
     <a href="recurringtasks.html">Recurring BD Tasks</a>
-    <a href="contacts.html" class="active">Contacts</a>
-    <a href="nqls.html">NQLs &amp; Partnerships</a>
+    <a href="contacts.html">Contacts</a>
+    <a href="nqls.html" class="active">NQLs &amp; Partnerships</a>
     <a href="config.html">Configuration</a>
   </nav>
   <div class="header-actions">
-    <button id="newContactBtn" class="btn btn-primary">+ New contact</button>
+    <button id="newContactBtn" class="btn btn-primary">+ New</button>
   </div>
 </header>
 
 <main class="other-items-page">
-  <h1>Contacts</h1>
-  <p class="calendar-subhead">People we have a relationship with that we want to reach out to on a cadence.</p>
+  <h1>NQLs &amp; Partnerships</h1>
+  <p class="calendar-subhead">Non-Qualified Leads and Partnerships you're tracking, and when they're next due for outreach.</p>
 
   <div class="filter-bar">
     <div class="filter-field filter-search">
@@ -54,46 +54,55 @@
   </div>
 
   <div id="contactsList">
-    <!-- rendered by contacts.js -->
+    <!-- rendered by nqls.js -->
   </div>
 </main>
 
-<!-- New contact modal -->
+<!-- New NQL / Partnership modal -->
 <div id="newContactModal" class="modal-overlay hidden">
   <div class="modal modal-small">
     <div class="modal-header">
-      <h2>New contact</h2>
+      <h2>New NQL or Partnership</h2>
       <button class="modal-close" data-close="newContactModal">&times;</button>
     </div>
     <form id="newContactForm">
       <div class="modal-body">
         <div class="field-row">
           <div class="field">
-            <label for="ctName">Contact name *</label>
+            <label for="ctName">Name *</label>
             <input id="ctName" name="name" required />
           </div>
           <div class="field">
-            <label for="ctNextOutreach">Next outreach date *</label>
-            <input id="ctNextOutreach" name="nextOutreachDate" type="date" required />
+            <label for="ctType">Type</label>
+            <select id="ctType" name="contactType">
+              <option value="Partnership" selected>Partnership</option>
+              <option value="Non-Qualified Lead">Non-Qualified Lead</option>
+            </select>
           </div>
         </div>
         <div class="field-row">
           <div class="field">
-            <label for="ctOwner">Contact owner</label>
+            <label for="ctNextOutreach">Next outreach date *</label>
+            <input id="ctNextOutreach" name="nextOutreachDate" type="date" required />
+          </div>
+          <div class="field">
+            <label for="ctOwner">Owner</label>
             <select id="ctOwner" name="contactOwner">
-              <!-- populated by contacts.js from config.contactOwners -->
+              <!-- populated by nqls.js from config.contactOwners -->
             </select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="ctCompany">Company name</label>
+            <input id="ctCompany" name="companyName" placeholder="Optional" />
           </div>
           <div class="field">
             <label for="ctClientPartner">Client Partner</label>
             <select id="ctClientPartner" name="clientPartner">
-              <!-- populated by contacts.js from config.clientPartners -->
+              <!-- populated by nqls.js from config.clientPartners -->
             </select>
           </div>
-        </div>
-        <div class="field">
-          <label for="ctCompany">Company name</label>
-          <input id="ctCompany" name="companyName" placeholder="Optional" />
         </div>
         <div class="field">
           <label for="ctNextOutreachAction">Next outreach action</label>
@@ -102,7 +111,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-close="newContactModal">Cancel</button>
-        <button type="submit" class="btn btn-primary">Add contact</button>
+        <button type="submit" class="btn btn-primary">Add</button>
       </div>
     </form>
   </div>
@@ -110,6 +119,6 @@
 
 <script src="api-client.js"></script>
 <script src="demoData.js"></script>
-<script src="contacts.js"></script>
+<script src="nqls.js"></script>
 </body>
 </html>

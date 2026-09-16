@@ -5,6 +5,19 @@ let activeLeadId = null;
 let editingActionItemId = null;
 let editingEventId = null;
 
+const boardFilters = {
+  owner: '',
+  clientPartner: '',
+};
+
+const UNASSIGNED = '__unassigned__';
+
+function matchesFilter(actual, filterValue) {
+  if (!filterValue) return true;
+  if (filterValue === UNASSIGNED) return !actual;
+  return actual === filterValue;
+}
+
 async function init() {
   wireStaticEvents();
   try {
@@ -15,7 +28,40 @@ async function init() {
     return;
   }
   populatePartnerSelect(document.getElementById('nlClientPartner'));
+  populateOwnerSelect(document.getElementById('nlLeadOwner'));
+  populateBoardFilterSelects();
   await loadLeads();
+}
+
+function populateOwnerSelect(select, currentValue) {
+  const names = (config.contactOwners || []).map((o) => o.name);
+  if (currentValue && !names.includes(currentValue)) names.push(currentValue);
+  names.sort((a, b) => a.localeCompare(b));
+  select.innerHTML =
+    '<option value="">Unassigned</option>' +
+    names.map((n) => `<option value="${escapeHtml(n)}" ${n === currentValue ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
+}
+
+function populateBoardFilterSelects() {
+  const ownerNames = (config.contactOwners || []).map((o) => o.name).sort((a, b) => a.localeCompare(b));
+  document.getElementById('boardFilterOwner').innerHTML =
+    '<option value="">All owners</option>' +
+    `<option value="${UNASSIGNED}">Unassigned</option>` +
+    ownerNames.map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+
+  const partnerNames = (config.clientPartners || []).slice().sort((a, b) => a.localeCompare(b));
+  document.getElementById('boardFilterPartner').innerHTML =
+    '<option value="">All partners</option>' +
+    `<option value="${UNASSIGNED}">Unassigned</option>` +
+    partnerNames.map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+}
+
+function visibleLeads() {
+  return leads.filter((l) => {
+    if (!matchesFilter(l.leadOwner, boardFilters.owner)) return false;
+    if (!matchesFilter(l.clientPartner, boardFilters.clientPartner)) return false;
+    return true;
+  });
 }
 
 // Builds <option>s from config.clientPartners; if currentValue is set and
@@ -113,21 +159,22 @@ function renderBoard() {
   const board = document.getElementById('board');
   board.innerHTML = '';
 
+  const filtered = visibleLeads();
   [...activeStages(), ...terminalStages()].forEach((stage) => {
-    const leadsInStage = leads.filter((l) => l.stage === stage.key);
+    const leadsInStage = filtered.filter((l) => l.stage === stage.key);
     board.appendChild(buildColumn(stage, leadsInStage));
   });
 
-  renderBoardSummary();
+  renderBoardSummary(filtered);
 }
 
-function renderBoardSummary() {
+function renderBoardSummary(filtered) {
   const summary = document.getElementById('boardSummary');
-  const total = leads.filter((l) => !l.isRFP).reduce((sum, l) => sum + (l.dealValue || 0), 0);
+  const total = filtered.filter((l) => !l.isRFP).reduce((sum, l) => sum + (l.dealValue || 0), 0);
   summary.innerHTML = `
     <span class="board-summary-label">Total pipeline value</span>
     <span class="board-summary-value">${formatCurrency(total)}</span>
-    <span class="board-summary-count">${leads.length} lead${leads.length === 1 ? '' : 's'}</span>
+    <span class="board-summary-count">${filtered.length} lead${filtered.length === 1 ? '' : 's'}</span>
   `;
 }
 
@@ -242,6 +289,7 @@ function buildCard(lead) {
     ${badgesHtml ? `<div class="card-badges">${badgesHtml}</div>` : ''}
     ${lead.contactName ? `<div class="card-contact">${escapeHtml(lead.contactName)}</div>` : ''}
     ${lead.clientPartner ? `<div class="card-partner">Partner: ${escapeHtml(lead.clientPartner)}</div>` : ''}
+    ${lead.leadOwner ? `<div class="card-partner">Owner: ${escapeHtml(lead.leadOwner)}</div>` : ''}
     <div class="card-value">${formatCurrency(lead.dealValue)}</div>
     ${comm ? `<div class="card-last-comm">${escapeHtml(comm.type)}: ${escapeHtml(comm.description)}</div>` : ''}
     <div class="card-progress-track"><div class="card-progress-fill" style="width:${stage ? stage.probability : 0}%"></div></div>
@@ -309,6 +357,24 @@ function wireStaticEvents() {
     loadLeads();
   });
 
+  document.getElementById('boardFilterOwner').addEventListener('change', (e) => {
+    boardFilters.owner = e.target.value;
+    renderBoard();
+  });
+
+  document.getElementById('boardFilterPartner').addEventListener('change', (e) => {
+    boardFilters.clientPartner = e.target.value;
+    renderBoard();
+  });
+
+  document.getElementById('boardFilterClear').addEventListener('click', () => {
+    boardFilters.owner = '';
+    boardFilters.clientPartner = '';
+    document.getElementById('boardFilterOwner').value = '';
+    document.getElementById('boardFilterPartner').value = '';
+    renderBoard();
+  });
+
   document.getElementById('newLeadBtn').addEventListener('click', () => openModal('newLeadModal'));
 
   document.getElementById('newLeadForm').addEventListener('submit', async (e) => {
@@ -321,6 +387,7 @@ function wireStaticEvents() {
       contactEmail: form.contactEmail.value,
       contactPhone: form.contactPhone.value,
       clientPartner: form.clientPartner.value,
+      leadOwner: form.leadOwner.value,
       dealValue: form.dealValue.value,
       isRFP: form.isRFP.checked,
     };
@@ -371,7 +438,7 @@ function currentLead() {
   return leads.find((l) => l.id === activeLeadId);
 }
 
-const EDITABLE_LEAD_FIELDS = ['companyName', 'dealName', 'contactName', 'contactEmail', 'contactPhone', 'clientPartner', 'dealValue'];
+const EDITABLE_LEAD_FIELDS = ['companyName', 'dealName', 'contactName', 'contactEmail', 'contactPhone', 'clientPartner', 'leadOwner', 'dealValue'];
 
 function getEditFormValues(form) {
   const values = {};
@@ -416,6 +483,7 @@ function renderLeadModal() {
         <div class="lead-summary-field"><span class="label">Email</span>${escapeHtml(lead.contactEmail) || '&mdash;'}</div>
         <div class="lead-summary-field"><span class="label">Phone</span>${escapeHtml(lead.contactPhone) || '&mdash;'}</div>
         <div class="lead-summary-field"><span class="label">Client Partner</span>${escapeHtml(lead.clientPartner) || '&mdash;'}</div>
+        <div class="lead-summary-field"><span class="label">Lead owner</span>${escapeHtml(lead.leadOwner) || '&mdash;'}</div>
         <div class="lead-summary-field"><span class="label">Created</span>${formatDate(lead.createdAt)}</div>
       </div>
       <button class="btn-text" data-toggle="editLeadForm" style="padding-left:0;">Edit details</button>
@@ -434,6 +502,9 @@ function renderLeadModal() {
         </div>
         <div class="field-row">
           <div class="field"><label>Client Partner</label><select name="clientPartner" id="editClientPartner"></select></div>
+          <div class="field"><label>Lead owner</label><select name="leadOwner" id="editLeadOwner"></select></div>
+        </div>
+        <div class="field-row">
           <div class="field" style="display:flex;align-items:flex-end;"><button type="submit" class="btn btn-secondary">Save</button></div>
         </div>
       </form>
@@ -580,6 +651,7 @@ function wireLeadModalEvents(lead) {
   const footer = document.getElementById('leadModalFooter');
 
   populatePartnerSelect(document.getElementById('editClientPartner'), lead.clientPartner);
+  populateOwnerSelect(document.getElementById('editLeadOwner'), lead.leadOwner);
 
   const editToggle = body.querySelector('[data-toggle="editLeadForm"]');
   if (editToggle) {

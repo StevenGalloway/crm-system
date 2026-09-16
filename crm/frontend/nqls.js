@@ -3,7 +3,15 @@ let contactOwners = [];
 let clientPartners = [];
 let editingContactId = null;
 
-const PAGE_TYPE = 'Contact';
+const PAGE_TYPES = ['Partnership', 'Non-Qualified Lead'];
+const SECTION_TITLES = {
+  Partnership: 'Partnerships',
+  'Non-Qualified Lead': 'Non-Qualified Leads',
+};
+const SECTION_SUBTEXT = {
+  Partnership: 'Entities we have a relationship with that we want to reach out to on a cadence.',
+  'Non-Qualified Lead': 'Leads that have not been confirmed ICP or seen the Intro to FG deck.',
+};
 const UNASSIGNED = '__unassigned__';
 
 const filters = {
@@ -39,10 +47,6 @@ function populateOwnerSelect(select, currentValue) {
     names.map((n) => `<option value="${escapeHtml(n)}" ${n === currentValue ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
 }
 
-// Mirrors app.js's populatePartnerSelect for the lead form -- if currentValue
-// is set and isn't in config.clientPartners (a partner since removed from
-// config), it's added as an extra selected option so it's never silently
-// dropped or swapped out from under the user.
 function populatePartnerSelect(select, currentValue) {
   const partners = clientPartners.slice();
   if (currentValue && !partners.includes(currentValue)) partners.push(currentValue);
@@ -107,10 +111,12 @@ function buildContactRow(c, todayStr) {
     const partnerOptions = ['', ...partnerNames]
       .map((n) => `<option value="${escapeHtml(n)}" ${n === c.clientPartner ? 'selected' : ''}>${n || 'Unassigned'}</option>`)
       .join('');
+    const typeOptions = PAGE_TYPES.map((t) => `<option value="${t}" ${t === (c.contactType || 'Partnership') ? 'selected' : ''}>${t}</option>`).join('');
     return `
       <li class="detail-item">
         <form class="inline-add-form" data-edit-contact-form="${c.id}" style="flex-wrap:wrap;">
           <input class="grow" name="name" value="${escapeHtml(c.name)}" required />
+          <select name="contactType" style="width:170px;">${typeOptions}</select>
           <input name="nextOutreachDate" type="date" value="${c.nextOutreachDate}" required style="width:150px;" />
           <select name="contactOwner" style="width:160px;">${ownerOptions}</select>
           <button type="submit" class="btn btn-secondary">Save</button>
@@ -123,12 +129,14 @@ function buildContactRow(c, todayStr) {
   }
 
   const overdue = c.nextOutreachDate < todayStr;
+  const isNQL = (c.contactType || 'Contact') === 'Non-Qualified Lead';
   return `
     <li class="detail-item ${overdue ? 'overdue' : ''}">
       <div class="detail-item-top">
         <span class="detail-item-title">${escapeHtml(c.name)}</span>
         <span style="display:flex;align-items:center;gap:8px;">
           <span class="detail-item-meta">Next outreach ${formatDate(c.nextOutreachDate)}</span>
+          ${isNQL ? `<button class="btn-text" data-convert-contact="${c.id}" style="padding:0;">Convert to lead</button>` : ''}
           <button class="btn-text" data-edit-contact="${c.id}" style="padding:0;">Edit</button>
           <button class="btn-danger-text" data-delete-contact="${c.id}" style="padding:0;">Delete</button>
         </span>
@@ -144,15 +152,21 @@ function renderList() {
   const container = document.getElementById('contactsList');
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  const group = contacts
-    .filter((c) => (c.contactType || 'Contact') === PAGE_TYPE)
-    .filter(passesFilters)
-    .sort((a, b) => a.nextOutreachDate.localeCompare(b.nextOutreachDate));
+  container.innerHTML = PAGE_TYPES.map((type) => {
+    const group = contacts
+      .filter((c) => (c.contactType || 'Contact') === type)
+      .filter(passesFilters)
+      .sort((a, b) => a.nextOutreachDate.localeCompare(b.nextOutreachDate));
 
-  container.innerHTML = `
-    <ul class="detail-list">
-      ${group.length ? group.map((c) => buildContactRow(c, todayStr)).join('') : `<li class="detail-item" style="color:var(--color-text-muted);border-style:dashed;">No contacts match your filters</li>`}
-    </ul>`;
+    return `
+      <div class="modal-section">
+        <div class="modal-section-header"><h3>${escapeHtml(SECTION_TITLES[type])} <span class="detail-item-meta">(${group.length})</span></h3></div>
+        <p class="calendar-subhead" style="margin:-6px 0 10px;">${escapeHtml(SECTION_SUBTEXT[type])}</p>
+        <ul class="detail-list">
+          ${group.length ? group.map((c) => buildContactRow(c, todayStr)).join('') : `<li class="detail-item" style="color:var(--color-text-muted);border-style:dashed;">None match your filters</li>`}
+        </ul>
+      </div>`;
+  }).join('');
 
   container.querySelectorAll('[data-edit-contact]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -175,6 +189,7 @@ function renderList() {
       try {
         await apiPatch(`/contacts/${form.dataset.editContactForm}`, {
           name: f.name.value,
+          contactType: f.contactType.value,
           nextOutreachDate: f.nextOutreachDate.value,
           nextOutreachAction: f.nextOutreachAction.value,
           contactOwner: f.contactOwner.value,
@@ -183,6 +198,19 @@ function renderList() {
         });
         editingContactId = null;
         await loadContacts();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+  });
+
+  container.querySelectorAll('[data-convert-contact]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Convert this Non-Qualified Lead to a lead on the board (Qualification stage)?')) return;
+      try {
+        await apiPost(`/contacts/${btn.dataset.convertContact}/convert-to-lead`, {});
+        await loadContacts();
+        showToast('Converted to lead');
       } catch (err) {
         showToast(err.message, true);
       }
@@ -212,7 +240,7 @@ function wireEvents() {
     try {
       await apiPost('/contacts', {
         name: form.name.value,
-        contactType: PAGE_TYPE,
+        contactType: form.contactType.value,
         nextOutreachDate: form.nextOutreachDate.value,
         nextOutreachAction: form.nextOutreachAction.value,
         contactOwner: form.contactOwner.value,
@@ -222,7 +250,7 @@ function wireEvents() {
       form.reset();
       closeModal('newContactModal');
       await loadContacts();
-      showToast('Contact added');
+      showToast('Added');
     } catch (err) {
       showToast(err.message, true);
     }
