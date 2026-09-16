@@ -3,7 +3,7 @@ let contactOwners = [];
 let clientPartners = [];
 let editingContactId = null;
 
-const PAGE_TYPES = ['Partnership', 'Non-Qualified Lead'];
+const PAGE_TYPES = ['Non-Qualified Lead', 'Partnership'];
 const SECTION_TITLES = {
   Partnership: 'Partnerships',
   'Non-Qualified Lead': 'Non-Qualified Leads',
@@ -13,6 +13,11 @@ const SECTION_SUBTEXT = {
   'Non-Qualified Lead': 'Leads that have not been confirmed ICP or seen the Intro to FG deck.',
 };
 const UNASSIGNED = '__unassigned__';
+
+const collapsedSections = {
+  'Non-Qualified Lead': false,
+  Partnership: false,
+};
 
 const filters = {
   search: '',
@@ -157,16 +162,30 @@ function renderList() {
       .filter((c) => (c.contactType || 'Contact') === type)
       .filter(passesFilters)
       .sort((a, b) => a.nextOutreachDate.localeCompare(b.nextOutreachDate));
+    const collapsed = collapsedSections[type];
 
     return `
       <div class="modal-section">
-        <div class="modal-section-header"><h3>${escapeHtml(SECTION_TITLES[type])} <span class="detail-item-meta">(${group.length})</span></h3></div>
-        <p class="calendar-subhead" style="margin:-6px 0 10px;">${escapeHtml(SECTION_SUBTEXT[type])}</p>
-        <ul class="detail-list">
-          ${group.length ? group.map((c) => buildContactRow(c, todayStr)).join('') : `<li class="detail-item" style="color:var(--color-text-muted);border-style:dashed;">None match your filters</li>`}
-        </ul>
+        <div class="modal-section-header">
+          <h3>${escapeHtml(SECTION_TITLES[type])} <span class="detail-item-meta">(${group.length})</span></h3>
+          <button type="button" class="btn-text" data-toggle-section="${type}">${collapsed ? 'Expand' : 'Collapse'}</button>
+        </div>
+        <div ${collapsed ? 'hidden' : ''}>
+          <p class="calendar-subhead" style="margin:-6px 0 10px;">${escapeHtml(SECTION_SUBTEXT[type])}</p>
+          <ul class="detail-list">
+            ${group.length ? group.map((c) => buildContactRow(c, todayStr)).join('') : `<li class="detail-item" style="color:var(--color-text-muted);border-style:dashed;">None match your filters</li>`}
+          </ul>
+        </div>
       </div>`;
   }).join('');
+
+  container.querySelectorAll('[data-toggle-section]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.toggleSection;
+      collapsedSections[type] = !collapsedSections[type];
+      renderList();
+    });
+  });
 
   container.querySelectorAll('[data-edit-contact]').forEach((btn) => {
     btn.addEventListener('click', () => {
