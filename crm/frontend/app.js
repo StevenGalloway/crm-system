@@ -192,7 +192,7 @@ function buildColumn(stage, leadsInStage) {
       <span class="column-title">${escapeHtml(stage.label)}</span>
       <span class="column-count">${leadsInStage.length}</span>
     </div>
-    <div class="column-subline">${stage.probability}% probability</div>
+    <div class="column-subline">&gt;=${stage.probability}% probability</div>
     <div class="column-total">${formatCurrency(stageTotal)}</div>
     ${stage.description ? `<div class="column-description">${escapeHtml(stage.description)}</div>` : ''}
   `;
@@ -476,7 +476,7 @@ function renderLeadModal() {
   document.getElementById('leadModalBody').innerHTML = `
     <div class="modal-section">
       <div class="lead-summary-grid">
-        <div class="lead-summary-field"><span class="label">Stage</span>${escapeHtml(stage ? stage.label : lead.stage)} (${stage ? stage.probability : 0}%)</div>
+        <div class="lead-summary-field"><span class="label">Stage</span>${escapeHtml(stage ? stage.label : lead.stage)} (&gt;=${stage ? stage.probability : 0}%)</div>
         <div class="lead-summary-field"><span class="label">Deal name</span>${escapeHtml(lead.dealName) || '&mdash;'}</div>
         <div class="lead-summary-field"><span class="label">Deal value</span>${formatCurrency(lead.dealValue)}</div>
         <div class="lead-summary-field"><span class="label">Contact</span>${escapeHtml(lead.contactName) || '&mdash;'}</div>
@@ -639,6 +639,7 @@ function renderLeadModal() {
   document.getElementById('leadModalFooter').innerHTML = `
     <button class="btn-danger-text" data-action="delete" style="margin-right:auto;">Delete lead</button>
     ${lead.isRFP ? `<button class="btn btn-secondary" data-action="convert-to-lead">Convert to lead</button>` : `<button class="btn btn-secondary" data-action="convert-to-rfp">Convert to RFP</button>`}
+    ${lead.stage !== 'lost' && lead.stage !== 'rfp' ? `<button class="btn btn-secondary" data-action="convert-to-contact">Convert to Contact</button>` : ''}
     <button class="btn btn-secondary" data-action="${lead.archived ? 'restore' : 'archive'}">${lead.archived ? 'Restore lead' : 'Archive lead'}</button>
     <button class="btn btn-secondary" data-close="leadModal">Close</button>
   `;
@@ -835,6 +836,20 @@ function wireLeadModalEvents(lead) {
           closeModal('leadModal');
           await loadLeads();
           showToast('Converted to RFP');
+        } catch (err) {
+          showToast(err.message, true);
+        }
+      });
+      return;
+    }
+    if (btn.dataset.action === 'convert-to-contact') {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Convert this lead to a contact for future outreach? It will move to the Lost stage.')) return;
+        try {
+          await apiPatch(`/leads/${lead.id}/convert-to-contact`, {});
+          closeModal('leadModal');
+          await loadLeads();
+          showToast('Converted to contact -- moved to Lost');
         } catch (err) {
           showToast(err.message, true);
         }

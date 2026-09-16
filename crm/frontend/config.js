@@ -1,6 +1,7 @@
 let config = null;
 
 async function init() {
+  document.getElementById('appVersion').textContent = APP_VERSION;
   try {
     config = await apiGet('/config');
     applyBrandFromConfig(config);

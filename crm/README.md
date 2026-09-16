@@ -431,6 +431,37 @@ tested at this scale, so the model favors simplicity over cleverness:
   stage can't accidentally become frozen by adding the flag to it without
   also adding the matching "convert" escape hatch your workflow needs.
 
+## Versioning
+
+One version number covers the frontend and API together, since they deploy
+as a single unit via the same CI/CD workflow (there's no separate build
+step to inject a version at deploy time, so it's a plain constant).
+
+- **Source of truth:** `APP_VERSION` in `frontend/api-client.js` -- shown on
+  the Configuration page.
+- **When to bump:** PATCH for bug fixes, MINOR for new features/UI changes,
+  MAJOR for breaking data-model or API changes. Bump it in the same
+  commit/PR as the change, and add an entry below.
+
+### Version history
+
+- **1.1.0** -- Split "Contacts, NQLs, & Partnerships" into separate
+  Contacts and NQLs & Partnerships tabs, each with search plus Owner/Client
+  Partner/date-due filtering (including an "Unassigned" option); added
+  Owner + Client Partner filtering to the Board and a new `leadOwner` field
+  on leads; made NQL/Partnership sections reorderable (NQLs above
+  Partnerships) and collapsible; restructured the Slack pipeline digest to
+  group by due date (Past Due / Due Today / Upcoming) then Client
+  Partner/Owner + company, instead of by item type; gave the digest
+  schedule a bounded catch-up window (up to 3 hours late) so a delayed
+  external cron tick still sends instead of silently skipping the day;
+  added manual "Send notifications now" buttons to the Configuration page;
+  added a "Convert to Contact" action on leads; changed stage probability
+  labels to ">=X%"; introduced this versioning scheme.
+- **1.0.0** -- Initial POC: Kanban board, calendar, one-time and recurring
+  BD action items, contacts/NQLs/partnerships, Slack pipeline digest +
+  outreach DMs, Configuration page.
+
 ## Known POC limitations worth knowing about
 
 - **No authentication.** Anyone with the URL can view, add, and modify

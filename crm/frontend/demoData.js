@@ -324,6 +324,31 @@
       return lead;
     },
 
+    convertLeadToContact: (id) => {
+      const lead = findLead(id);
+      if (lead.stage === 'rfp') throw new Error('RFP leads are frozen -- convert to a standard lead first');
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const nextOutreach = new Date(now);
+      nextOutreach.setDate(nextOutreach.getDate() + 90);
+      const contact = {
+        id: uid(),
+        name: lead.contactName || lead.companyName,
+        contactType: 'Contact',
+        companyName: lead.companyName || '',
+        nextOutreachDate: nextOutreach.toISOString().slice(0, 10),
+        nextOutreachAction: `Re-check interest -- previously a lead${lead.dealName ? ` (${lead.dealName})` : ''} that moved to Lost`,
+        contactOwner: lead.leadOwner || '',
+        clientPartner: lead.clientPartner || '',
+        outreachNotifiedFor: null, createdAt: nowIso, updatedAt: nowIso,
+      };
+      contacts.push(contact);
+      lead.stage = 'lost';
+      lead.updatedAt = nowIso;
+      lead.stageHistory.push({ stage: 'lost', enteredAt: nowIso });
+      return { lead, contact };
+    },
+
     convertLeadToRfp: (id) => {
       const lead = findLead(id);
       if (lead.isRFP) throw new Error('Lead is already an RFP');

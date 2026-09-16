@@ -1,6 +1,11 @@
 /* Shared helpers used by app.js and calendar.js. Plain script (no ES
    modules) so this also works when opened directly as a local file. */
 
+// Single version number covering the frontend + API together (they deploy
+// as one unit). Bump this alongside the "Version history" entry in
+// README.md whenever a change ships -- shown on the Configuration page.
+const APP_VERSION = '2.1.0';
+
 const API_BASE = '/api';
 let useDemoMode = false;
 let demoModeChecked = false;
@@ -84,6 +89,7 @@ function demoRoute(method, pathAndQuery, body) {
     if (parts[2] === 'stage') return window.DemoApi.updateStage(id, body.action, body.targetStage);
     if (parts[2] === 'convert-to-lead' && method === 'PATCH') return window.DemoApi.convertRfpToLead(id);
     if (parts[2] === 'convert-to-rfp' && method === 'PATCH') return window.DemoApi.convertLeadToRfp(id);
+    if (parts[2] === 'convert-to-contact' && method === 'PATCH') return window.DemoApi.convertLeadToContact(id);
     if (parts[2] === 'archive') return window.DemoApi.archiveLead(id, body.archived !== false);
     if (parts[2] === 'actions' && parts.length === 3) return window.DemoApi.addActionItem(id, body);
     if (parts[2] === 'actions' && parts.length === 4) return window.DemoApi.updateActionItem(id, parts[3], body);

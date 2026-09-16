@@ -1,6 +1,6 @@
 {
   "name": "crm",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "A lightweight Kanban-style board for tracking leads and opportunities from Qualification through Win (or Lost), with action items, calendar events, a communications log, and a daily Slack digest of what's coming due.",
   "main": "index.js",
   "scripts": {
