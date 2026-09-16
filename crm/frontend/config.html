@@ -60,7 +60,7 @@
 
   <div class="modal-section">
     <div class="modal-section-header"><h3>Notification schedule</h3></div>
-    <p class="detail-item-meta" style="margin-bottom:8px;">Controls when the pipeline digest posts to Slack. Time is Central, snapped to the nearest 15 minutes.</p>
+    <p class="detail-item-meta" style="margin-bottom:8px;">Controls when the pipeline digest posts to Slack. Time is Central -- the digest fires on the first check at or after this time (checks run roughly every 15 minutes, but aren't guaranteed to land exactly on schedule), then won't repeat until the next period.</p>
     <form id="scheduleForm" class="field-row" style="align-items:flex-end;flex-wrap:wrap;">
       <div class="field" style="flex:none;width:140px;">
         <label for="schFrequency">Frequency</label>
@@ -94,6 +94,15 @@
         <button type="submit" class="btn btn-primary">Save schedule</button>
       </div>
     </form>
+  </div>
+
+  <div class="modal-section">
+    <div class="modal-section-header"><h3>Send notifications manually</h3></div>
+    <p class="detail-item-meta" style="margin-bottom:8px;">Workaround for a missed or delayed scheduled run &mdash; sends immediately, bypassing the schedule check above.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button type="button" id="sendDigestNowBtn" class="btn btn-secondary">Send pipeline digest now</button>
+      <button type="button" id="sendOutreachNowBtn" class="btn btn-secondary">Send outreach reminders now</button>
+    </div>
   </div>
 </main>
 

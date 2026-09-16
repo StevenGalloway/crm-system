@@ -9,10 +9,11 @@ const CONFIG_DOC_ID = 'app-config';
 // Functions" only support HTTP triggers (Timer/Queue/Blob etc. are not a
 // supported configuration: https://learn.microsoft.com/azure/static-web-apps/apis-functions#constraints).
 // An external scheduler (see .github/workflows/scheduled-jobs.yml) calls
-// this every 15 minutes instead, so the configured schedule (frequency +
-// time, set on the Configuration page) can still be checked at that
-// resolution -- the gating logic below is unchanged from when this ran on
-// an in-process timer.
+// this roughly every 15 minutes instead, so the configured schedule
+// (frequency + time, set on the Configuration page) can still be checked at
+// close to that resolution -- see scheduleCore.shouldSendNow for why the
+// match is "at or after" the configured time rather than exact, to tolerate
+// that external scheduler running late.
 app.http('dailyNotifier', {
   methods: ['POST'],
   route: 'notify/tick',

@@ -69,6 +69,9 @@ function demoRoute(method, pathAndQuery, body) {
   if (parts[0] === 'notify' && parts[1] === 'outreach-test' && method === 'POST') {
     return window.DemoApi.testOutreachNotifier();
   }
+  if (parts[0] === 'notify' && parts[1] === 'test' && method === 'POST') {
+    return window.DemoApi.testNotifier();
+  }
 
   if (parts[0] === 'leads') {
     if (parts.length === 1) {

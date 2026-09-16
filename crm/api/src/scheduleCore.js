@@ -29,14 +29,21 @@ function getCentralParts(date) {
 
 const pad = (n) => String(n).padStart(2, '0');
 
-// The timer that drives this fires every 15 minutes, so a configured time
-// snaps down to the nearest quarter-hour -- the UI's time input steps in
-// 15-minute increments to match.
+// The external cron driving this (see scheduled-jobs.yml) targets every 15
+// minutes but isn't guaranteed to land on that cadence -- GitHub Actions
+// schedules can be delayed well beyond their configured interval under load.
+// An exact-match check against the configured time would silently skip an
+// entire day/week/month whenever a tick landed late or was missed outright.
+// So this is a catch-up check instead: true from the configured time onward,
+// for the rest of that day -- whether it's already been sent for this period
+// is enforced separately by the caller via lastSentPeriodKey, so a late tick
+// still only sends once.
 function shouldSendNow(schedule, now) {
   const c = getCentralParts(now);
   const [hh, mm] = (schedule.time || DEFAULT_SCHEDULE.time).split(':').map(Number);
-  const snappedMinute = Math.floor(mm / 15) * 15;
-  if (c.hour !== hh || c.minute !== snappedMinute) return false;
+  const scheduledMinutes = hh * 60 + mm;
+  const nowMinutes = c.hour * 60 + c.minute;
+  if (nowMinutes < scheduledMinutes) return false;
 
   if (schedule.frequency === 'weekly') {
     const dow = schedule.dayOfWeek !== undefined ? schedule.dayOfWeek : DEFAULT_SCHEDULE.dayOfWeek;

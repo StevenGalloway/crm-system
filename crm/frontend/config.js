@@ -229,6 +229,38 @@ function wireEvents() {
       showToast(err.message, true);
     }
   });
+
+  document.getElementById('sendDigestNowBtn').addEventListener('click', async (e) => {
+    const btn = e.target;
+    btn.disabled = true;
+    try {
+      const result = await apiPost('/notify/test', {});
+      showToast(result.posted ? 'Pipeline digest sent to Slack' : result.reason || 'Nothing to send', !result.posted);
+    } catch (err) {
+      showToast(err.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('sendOutreachNowBtn').addEventListener('click', async (e) => {
+    const btn = e.target;
+    btn.disabled = true;
+    try {
+      const result = await apiPost('/notify/outreach-test', {});
+      const sentCount = (result.sent || []).reduce((sum, s) => sum + s.count, 0);
+      if (sentCount) {
+        showToast(`Sent outreach reminders to ${result.sent.length} owner(s) (${sentCount} contact(s))`);
+      } else {
+        const skippedReason = (result.skipped || [])[0] && (result.skipped || [])[0].reason;
+        showToast(result.reason || skippedReason || 'No outreach reminders due', true);
+      }
+    } catch (err) {
+      showToast(err.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
 }
 
 document.addEventListener('DOMContentLoaded', init);

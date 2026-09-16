@@ -559,6 +559,21 @@
       return lead;
     },
 
+    testNotifier: () => {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() + 5);
+      const cutoffStr = cutoff.toISOString().slice(0, 10);
+      const dueCount = leads
+        .filter((l) => !l.archived)
+        .reduce((sum, l) => sum + l.actionItems.filter((a) => !a.completed && a.dueDate.slice(0, 10) <= cutoffStr).length, 0);
+      return {
+        posted: false,
+        reason: dueCount
+          ? `Demo mode -- ${dueCount} action item(s) would be included, but Slack posts aren't simulated locally. Deploy with SLACK_WEBHOOK_URL set to test for real.`
+          : 'No action items due -- nothing to post',
+      };
+    },
+
     testOutreachNotifier: () => {
       const todayStr = new Date().toISOString().slice(0, 10);
       const cutoff = new Date();
