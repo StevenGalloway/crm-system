@@ -60,7 +60,7 @@
 
   <div class="modal-section">
     <div class="modal-section-header"><h3>Notification schedule</h3></div>
-    <p class="detail-item-meta" style="margin-bottom:8px;">Controls when the pipeline digest posts to Slack. Time is Central -- the digest fires on the first check at or after this time (checks run roughly every 15 minutes, but aren't guaranteed to land exactly on schedule), then won't repeat until the next period.</p>
+    <p class="detail-item-meta" style="margin-bottom:8px;">Controls when the pipeline digest posts to Slack. Time is Central -- the digest fires on the first check at or after this time (checks run roughly every 15 minutes, but aren't guaranteed to land exactly on schedule), up to 3 hours late if a check was missed. Won't repeat until the next period, and won't send at all if more than 3 hours late.</p>
     <form id="scheduleForm" class="field-row" style="align-items:flex-end;flex-wrap:wrap;">
       <div class="field" style="flex:none;width:140px;">
         <label for="schFrequency">Frequency</label>
