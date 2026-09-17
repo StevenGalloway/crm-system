@@ -29,13 +29,13 @@ function formatEventWhen(eventDate) {
 // shape so the three can be bucketed by due date and grouped by Client
 // Partner/Owner + company uniformly, instead of staying siloed by type.
 function normalizeActionItem(a) {
-  return { group: a.clientPartner || a.leadOwner || GENERAL_GROUP, companyName: a.companyName, description: a.description, dateStr: a.dueDate.slice(0, 10), sortDate: a.dueDate, showsOwnDate: false };
+  return { group: a.clientPartner || a.leadOwner || GENERAL_GROUP, companyName: a.companyName, dealName: a.dealName, description: a.description, dateStr: a.dueDate.slice(0, 10), sortDate: a.dueDate, showsOwnDate: false };
 }
 function normalizeEvent(e) {
-  return { group: e.clientPartner || e.leadOwner || GENERAL_GROUP, companyName: e.companyName, description: `${e.title} (${formatEventWhen(e.eventDate)})`, dateStr: e.eventDate.slice(0, 10), sortDate: e.eventDate, showsOwnDate: true };
+  return { group: e.clientPartner || e.leadOwner || GENERAL_GROUP, companyName: e.companyName, dealName: e.dealName, description: `${e.title} (${formatEventWhen(e.eventDate)})`, dateStr: e.eventDate.slice(0, 10), sortDate: e.eventDate, showsOwnDate: true };
 }
 function normalizeOtherItem(o) {
-  return { group: GENERAL_GROUP, companyName: null, description: o.description, dateStr: o.dueDate.slice(0, 10), sortDate: o.dueDate, showsOwnDate: false };
+  return { group: GENERAL_GROUP, companyName: null, dealName: null, description: o.description, dateStr: o.dueDate.slice(0, 10), sortDate: o.dueDate, showsOwnDate: false };
 }
 
 // Renders one due-date bucket (Past Due / Due Today / Upcoming): grouped by
@@ -46,20 +46,23 @@ function normalizeOtherItem(o) {
 function renderBucket(items, showDueDate) {
   const byKey = {};
   items.forEach((i) => {
-    const key = `${i.group}::${i.companyName || ''}`;
-    (byKey[key] = byKey[key] || { group: i.group, companyName: i.companyName, items: [] }).items.push(i);
+    const key = `${i.group}::${i.companyName || ''}::${i.dealName || ''}`;
+    (byKey[key] = byKey[key] || { group: i.group, companyName: i.companyName, dealName: i.dealName, items: [] }).items.push(i);
   });
   const groups = Object.values(byKey).sort((a, b) => {
     const byGroup = a.group.localeCompare(b.group);
-    return byGroup !== 0 ? byGroup : (a.companyName || '').localeCompare(b.companyName || '');
+    if (byGroup !== 0) return byGroup;
+    const byCompany = (a.companyName || '').localeCompare(b.companyName || '');
+    return byCompany !== 0 ? byCompany : (a.dealName || '').localeCompare(b.dealName || '');
   });
 
   const lines = [];
   groups.forEach((g) => {
-    lines.push(`*${g.companyName ? `${g.group} - ${g.companyName}` : g.group}*`);
+    const label = g.companyName ? `${g.group} - ${g.companyName}${g.dealName ? ` - ${g.dealName}` : ''}` : g.group;
+    lines.push(`*${label}*`);
     [...g.items]
       .sort((a, b) => a.sortDate.localeCompare(b.sortDate))
-      .forEach((i) => lines.push(`- ${i.description}${showDueDate && !i.showsOwnDate ? ` (due ${i.dateStr})` : ''}`));
+      .forEach((i) => lines.push(`• ${i.description}${showDueDate && !i.showsOwnDate ? ` (due ${i.dateStr})` : ''}`));
   });
   return lines.join('\n');
 }
@@ -84,13 +87,13 @@ async function runDigest(context) {
   const cutoffDateStr = cutoffIso.slice(0, 10);
 
   const actionQuery = {
-    query: `SELECT c.companyName, c.clientPartner, c.leadOwner, ai.description, ai.dueDate
+    query: `SELECT c.companyName, c.dealName, c.clientPartner, c.leadOwner, ai.description, ai.dueDate
             FROM c JOIN ai IN c.actionItems
             WHERE ai.completed = false AND ai.dueDate <= @cutoff AND c.archived = false`,
     parameters: [{ name: '@cutoff', value: cutoffDateStr }],
   };
   const eventQuery = {
-    query: `SELECT c.companyName, c.clientPartner, c.leadOwner, ev.title, ev.eventDate
+    query: `SELECT c.companyName, c.dealName, c.clientPartner, c.leadOwner, ev.title, ev.eventDate
             FROM c JOIN ev IN c.calendarEvents
             WHERE ev.eventDate >= @now AND ev.eventDate <= @cutoff AND c.archived = false`,
     parameters: [
