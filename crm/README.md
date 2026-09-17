@@ -11,6 +11,10 @@ system -- anyone with the URL can use it, by design, per the POC scope.
 Estimated cost: **$0-2/month** (see the cost breakdown from earlier in this
 conversation -- nothing here should generate a real bill at POC-scale usage).
 
+See **[ARCHITECTURE.md](ARCHITECTURE.md)** for the handful of decisions
+here that involved a real tradeoff -- scheduling around a platform
+limitation, the demo-mode fallback, and a couple of others.
+
 ---
 
 ## 0. What you're deploying
